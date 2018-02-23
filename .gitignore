@@ -1,0 +1,18 @@
+# the makefile rsyncs to CC Lyon... don't put it in the repository...
+
+*.kdev4
+*.fits
+*.log
+*~
+*h5
+
+
+__pycache__
+.cache
+‚
+
+# jupyter checkpoints
+.ipynb_checkpoints/
+
+# module egg...
+*.egg-info
