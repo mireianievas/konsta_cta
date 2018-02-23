@@ -1,1 +1,1 @@
-# konsta_cta
+# konsta-cta
