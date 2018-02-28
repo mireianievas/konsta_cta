@@ -5,9 +5,16 @@ from ctapipe.io import event_source
 
 
 class FileReader():
-    # Simple class to generate file list and read in files
+    ''' Simple class to generate file list and read in files
 
-    def __init__(self, datatype=None, directory="./", file_list=False, max_events=None):
+        Allows to generate a file list from given directory
+        or use a list of the links to the files. This list
+        can be read eather using generator or directly from
+        the list.
+    '''
+
+    def __init__(self, datatype=None, directory="./",
+                 file_list=False, max_events=None):
         self.datatype = datatype
         self.directory = directory
         self.file_list = file_list

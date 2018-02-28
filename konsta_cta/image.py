@@ -42,6 +42,7 @@ class ImagePreparer():
             raise ValueError('No particle array given.')
         self.keys = None
         self.geoms = self.get_all_camera_geoms()
+        self.mc_image = {}
 
     def analysis(self):
         ''' Performs the processing of the images:
@@ -58,14 +59,15 @@ class ImagePreparer():
             self.n_images[particle.datatype] = 0
             self.n_clean_images[particle.datatype] = 0
             dtype = particle.datatype
-
             # loop through all events
             for event in particle.source:
                 event_id = event.dl0.event_id
-
                 # loop through all telescopes with data
                 for tel_id in event.r0.tels_with_data:
                     self.n_images[dtype] += 1
+                    # mc Image (why are they empty???)
+                    self.mc_image[dtype, event_id, tel_id] = event.mc.tel[tel_id].photo_electron_image
+                    
                     calibrator(event)
                     # calibrated image
                     image = event.dl1.tel[tel_id].image
@@ -75,7 +77,6 @@ class ImagePreparer():
                         self.geoms[tel_id], image,
                         min_number_picture_neighbors=2
                         )
-
                     # drop images that didn't survive image cleaning
                     if any(mask == True):
                         self.n_clean_images[dtype] += 1
@@ -94,12 +95,11 @@ class ImagePreparer():
         self.get_keys()
 
     def get_keys(self):
-        # returns an numpy array of the keys
-        # (used later for accessing the cleaned images)
+        # returns numpy array of the keys
         self.keys = np.array(list(self.clean_images.keys()))
 
     def get_all_camera_geoms(self):
-        # returns a dict of all camera geometries
+        # returns dict of all camera geometries
         geoms = None
         for particle in self.particles:
             # get the first event:
