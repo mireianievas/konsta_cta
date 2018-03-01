@@ -3,6 +3,7 @@ from os.path import expandvars
 
 from ctapipe.io import event_source
 
+import warnings
 
 class FileReader():
     ''' Simple class to generate file list and read in files
@@ -13,33 +14,31 @@ class FileReader():
         the list.
     '''
 
-    def __init__(self, datatype=None, directory="./",
-                 file_list=False, max_events=None):
-        self.datatype = datatype
-        self.directory = directory
-        self.file_list = file_list
-        if not self.file_list:
-            self.get_file_list()
-        print('Number of files to read: {} for datatype {}'.format(
-            len(self.file_list), self.datatype))
+    def __init__(self, file_list=False, datatype=None, max_events=None):
 
         self.max_events = max_events
+        self.file_list = file_list
+        self.datatype = datatype
+
+        if not self.datatype:
+            # Name of datatype should be passed
+            warnings.warn("No name for datatype passed")
+
+        if not file_list:
+            raise ValueError("No list given.")
+        elif len(self.file_list) == 0:
+            raise Exception('No files found in "{}"'.format(
+                str(self.directory)))
 
     # generate a list of input files from the files in directory
-    def get_file_list(self):
-        self.file_list = os.popen('find ' + str(self.directory) + str(
-            self.datatype) + ' -name "*run*simtel*"').read().split('\n')[:-1]
-
-        if len(self.file_list) == 0:
-            raise Exception('No files found in directory "{}"'.format(
-                str(self.directory) + str(self.datatype)))
-
-    # read the files
-    def read_files(self):
-        self.read_files_from_list()
+    @classmethod
+    def get_file_list(cls, directory, datatype=None, max_events=None):
+        file_list = os.popen('find ' + str(directory) +
+            ' -name "*run*simtel*"').read().split('\n')[:-1]
+        return cls(file_list, datatype)
 
     # read the sources from the file in list
-    def read_files_from_list(self):
+    def read_files(self):
         self.sources = {}
         for i, file in enumerate(self.file_list):
             infile = expandvars(file)
@@ -54,5 +53,5 @@ class FileReader():
     # read source as generator
     def files_as_generator(self):
         for count, file in enumerate(self.file_list):
-            print('Now opening {} file {}'.format(self.datatype, count + 1))
+            print('Now opening file {}'.format(self.datatype, count + 1))
             yield self.read_files_as_generator(file)
