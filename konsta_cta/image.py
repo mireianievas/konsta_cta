@@ -1,4 +1,6 @@
+import warnings
 import numpy as np
+
 # Calibration
 #############
 from ctapipe.calib.camera.r1 import HESSIOR1Calibrator
@@ -28,6 +30,7 @@ class ImagePreparer():
         performed using tailcut cleaning.
     
     '''
+
     def __init__(self, particles=None):
         # Input
         #######
@@ -41,7 +44,7 @@ class ImagePreparer():
         if not self.particles:
             raise ValueError('No particle array given.')
         self.keys = None
-        self.geoms = self.get_all_camera_geoms()
+        self.geoms = self.get_camera_geoms()
         self.mc_image = {}
 
     def analysis(self):
@@ -87,7 +90,7 @@ class ImagePreparer():
                         self.hillas_moments[dtype, event_id, tel_id] = hillas_parameters(
                             self.geoms[tel_id], self.clean_images[dtype, event_id, tel_id]
                                 )
-            print("Processed {} images for datatype {}. Images" 
+            print("Processed {} images for datatype {}. Images " 
                    "that didn't survive cleaning: {}".format(
                     self.n_images[dtype], dtype,
                     self.n_images[dtype] - self.n_clean_images[dtype])
@@ -98,7 +101,7 @@ class ImagePreparer():
         # returns numpy array of the keys
         self.keys = np.array(list(self.clean_images.keys()))
 
-    def get_all_camera_geoms(self):
+    def get_camera_geoms(self):
         # returns dict of all camera geometries
         geoms = None
         for particle in self.particles:
@@ -111,15 +114,14 @@ class ImagePreparer():
             for tel_id in event.inst.subarray.tel_id.item():
                 _geoms[tel_id] = event.inst.subarray.tel[tel_id].camera
 
-            # Test of the simulation files for all particle files use the same
-            # geometry
+            # Check geometry for all particle files 
             if not geoms:
                 geoms = _geoms
             else:
                 if geoms == _geoms:
                     pass
                 else:
-                    raise Exception('Not same camera geometries for the files'
+                    warnings.warn('Not same camera geometries for the files'
                         'occured for: {}'.format(particle.datatype)
                         )
         return(geoms)
