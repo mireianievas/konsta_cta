@@ -31,6 +31,8 @@ class ImagePreparer():
     
     '''
 
+
+
     def __init__(self, particles=None):
         # Input
         #######
@@ -38,16 +40,27 @@ class ImagePreparer():
         #
         self.clean_images = {}
         self.hillas_moments = {}
-        self.n_images = {}
-        self.n_clean_images = {}
+        self.sum_images = {}
+        self.sum_clean_images = {}
         self.particles = particles
         if not self.particles:
             raise ValueError('No particle array given.')
         self.keys = None
         self.geoms = self.get_camera_geoms()
         self.mc_image = {}
+        self.mc_energy = {}
 
-    def analysis(self):
+        self.n_clean_images = {}
+        self.n_images = {}
+        
+        ## QUESTION: what values for other cameras??
+        # from Tino
+        self.pe_thresh = {
+            "ASTRICam": 14,
+            "LSTCam": 100,
+            "NectarCam": 190}
+
+    def analysis(self, hillas=False):
         ''' Performs the processing of the images:
             calibration perfoming conversion from r0 to dl1
             image cleaning using tailcut_cleaning
@@ -58,23 +71,38 @@ class ImagePreparer():
 
         # loop through all particle types
         for particle in self.particles:
-            # count number of images and number after cleaning
-            self.n_images[particle.datatype] = 0
-            self.n_clean_images[particle.datatype] = 0
             dtype = particle.datatype
+
+            # count number of images and number after cleaning
+            self.sum_images[dtype] = 0
+            self.sum_clean_images[dtype] = 0
+            
             # loop through all events
             for event in particle.source:
                 event_id = event.dl0.event_id
+                n_images = 0
+                n_clean_images = 0
+                self.mc_energy[dtype, event_id] = event.mc.energy
                 # loop through all telescopes with data
                 for tel_id in event.r0.tels_with_data:
-                    self.n_images[dtype] += 1
+                    n_images += 1
+
+                    camera = event.inst.subarray.tel[tel_id].camera
+                    
                     # mc Image (why are they empty???)
                     self.mc_image[dtype, event_id, tel_id] = event.mc.tel[tel_id].photo_electron_image
                     
                     calibrator(event)
                     # calibrated image
-                    image = event.dl1.tel[tel_id].image
-                    image = np.reshape(image[0], np.shape(image)[1])
+                
+                    # Tino's solution
+                    if (camera.cam_id == np.array(list(self.pe_thresh.keys()))).any():
+                        image = event.dl1.tel[tel_id].image
+                        image = self.pick_gain_channel(image, camera.cam_id)
+                    else:
+                        image = event.dl1.tel[tel_id].image
+                        image = np.reshape(image[0], np.shape(image)[1])
+                    
                     # image cleaning
                     mask = tailcuts_clean(
                         self.geoms[tel_id], image,
@@ -82,18 +110,27 @@ class ImagePreparer():
                         )
                     # drop images that didn't survive image cleaning
                     if any(mask == True):
-                        self.n_clean_images[dtype] += 1
+                        n_clean_images += 1
                         self.clean_images[dtype, event_id, tel_id] = np.copy(image)
                         # set rejected pixels to zero
                         self.clean_images[dtype, event_id, tel_id][~mask] = 0
 
-                        self.hillas_moments[dtype, event_id, tel_id] = hillas_parameters(
-                            self.geoms[tel_id], self.clean_images[dtype, event_id, tel_id]
-                                )
+                        if hillas:
+                            self.hillas_moments[dtype, event_id, tel_id] = hillas_parameters(
+                                self.geoms[tel_id], self.clean_images[dtype, event_id, tel_id])
+                        else:
+                            pass
+                # summary:
+                self.sum_images[dtype] += n_images
+                self.sum_clean_images[dtype] += n_clean_images
+                # per event:
+                self.n_clean_images[dtype, event_id] = n_clean_images
+                self.n_images[dtype, event_id] = n_images
+
             print("Processed {} images for datatype {}. Images " 
                    "that didn't survive cleaning: {}".format(
-                    self.n_images[dtype], dtype,
-                    self.n_images[dtype] - self.n_clean_images[dtype])
+                    self.sum_images[dtype], dtype,
+                    self.sum_images[dtype] - self.sum_clean_images[dtype])
                   )
         self.get_keys()
 
@@ -122,6 +159,20 @@ class ImagePreparer():
                     pass
                 else:
                     warnings.warn('Not same camera geometries for the files'
-                        'occured for: {}'.format(particle.datatype)
-                        )
+                        'occured for: {}'.format(particle.datatype))
         return(geoms)
+
+    def pick_gain_channel(self, pmt_signal, cam_id):
+        '''the PMTs on some (most?) cameras have 2 gain channels. select one
+        according to a threshold. ultimately, this will be done IN the
+        camera/telescope itself but until then, do it here
+        '''
+        np_true_false = np.array([[True], [False]])
+        if pmt_signal.shape[0] > 1:
+            pmt_signal = np.squeeze(pmt_signal)
+            pick = (self.pe_thresh[cam_id] <
+                    pmt_signal).any(axis=0) != np_true_false
+            pmt_signal = pmt_signal.T[pick.T]
+        else:
+            pmt_signal = np.squeeze(pmt_signal)
+        return pmt_signal
