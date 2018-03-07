@@ -43,12 +43,15 @@ class FileReader():
         return cls(file_list, datatype, max_events)
 
     # read the sources from the file in list
-    def read_files(self):
-        print('Opening {} files'.format(len(self.file_list)))
-        self.sources = {}
-        for i, file in enumerate(self.file_list):
-            infile = expandvars(file)
-            self.sources[i] = event_source(infile, max_events=self.max_events)
+    def read_files(self, files):
+        #self.source = {}
+        try:
+            for i, file in enumerate(files):
+                infile = expandvars(file)
+                self.source = event_source(infile, max_events=self.max_events)
+        except:
+            infile = expandvars(files)
+            self.source = event_source(infile, max_events=self.max_events)
 
     # For reading the files with generator
     # read the sources as generator

@@ -31,6 +31,22 @@ class ImagePreparer():
     
     '''
 
+    # for storing data
+    clean_images = {}
+    hillas_moments = {}
+    sum_images = {}
+    sum_clean_images = {}
+    mc_image = {}
+    mc_energy = {}
+    n_clean_images = {}
+    n_images = {}
+
+    ## QUESTION: what values for other cameras??
+    # from Tino
+    pe_thresh = {
+        "ASTRICam": 14,
+        "LSTCam": 100,
+        "NectarCam": 190}
 
 
     def __init__(self, particles=None):
@@ -38,29 +54,16 @@ class ImagePreparer():
         #######
         # particles - array of konsta_cta.readdata.FileReader
         #
-        self.clean_images = {}
-        self.hillas_moments = {}
-        self.sum_images = {}
-        self.sum_clean_images = {}
+
         self.particles = particles
         if not self.particles:
             raise ValueError('No particle array given.')
         self.keys = None
         self.geoms = self.get_camera_geoms()
-        self.mc_image = {}
-        self.mc_energy = {}
 
-        self.n_clean_images = {}
-        self.n_images = {}
         
-        ## QUESTION: what values for other cameras??
-        # from Tino
-        self.pe_thresh = {
-            "ASTRICam": 14,
-            "LSTCam": 100,
-            "NectarCam": 190}
 
-    def analysis(self, hillas=False):
+    def prepare(self, hillas=False):
         ''' Performs the processing of the images:
             calibration perfoming conversion from r0 to dl1
             image cleaning using tailcut_cleaning
@@ -137,6 +140,7 @@ class ImagePreparer():
     def get_keys(self):
         # returns numpy array of the keys
         self.keys = np.array(list(self.clean_images.keys()))
+        self.keys2 = np.array(list(self.n_clean_images.keys()))
 
     def get_camera_geoms(self):
         # returns dict of all camera geometries
