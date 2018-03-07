@@ -61,22 +61,6 @@ def plot_numTELSvsENERGY(number_images, save=None):
     plt.savefig(save+".pdf")
     plt.close()
 
-    '''
-    # 3D distribution
-    from mpl_toolkits.mplot3d import Axes3D
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(number_images.Emc_log, number_images.all_images, number_images.cleaned)
-    ax.set_xlabel("log(E$_{MC})$ / TeV", fontsize=15)
-    ax.set_ylabel("trigger level", fontsize=15)
-    ax.set_zlabel("image cleaning", fontsize=15)
-    plt.style.use(['default'])
-    plt.tight_layout()
-    plt.savefig(save+"_3D.pdf")
-    plt.close()
-    '''
-
     # 2D scatter
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -110,7 +94,6 @@ def plot_numTELSvsENERGY(number_images, save=None):
         cmap='viridis', norm=LogNorm())
     ax.set_xlabel("log(E$_{MC})$ / TeV", fontsize=15)
     ax.set_ylabel("image cleaning", fontsize=15)
-
     plt.colorbar(scatter, ax=ax)
     plt.style.use(['default'])
     plt.tight_layout()
