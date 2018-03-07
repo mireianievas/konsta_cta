@@ -101,9 +101,6 @@ if __name__ == '__main__':
 
 	number_images = pd.DataFrame(columns=["Emc", "all_images", "cleaned"])
 	
-	# Save the output to HDF5 file
-	store = pd.HDFStore('images.h5')
-	
 	if args.prepare:
 		# particle types
 		for particle in particles:
@@ -118,7 +115,7 @@ if __name__ == '__main__':
 
 				# prepare the image
 				images = ImagePreparer([particle])
-				images.analysis(hillas=False)
+				images.prepare(hillas=False)
 
 				if (args.numTELS_ENERGY) & (particle.datatype == 'Gamma'):
 
@@ -133,6 +130,9 @@ if __name__ == '__main__':
 						]], columns=["Emc", "all_images", "cleaned"])
 						number_images = number_images.append(
 							new_entry, ignore_index=True)
+
+		# Save the output to HDF5 file
+		store = pd.HDFStore('images_{}.h5'.format(len(number_images)))
 		# save the DataFrame
 		store['number_images'] = number_images
 
