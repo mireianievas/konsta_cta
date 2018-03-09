@@ -29,9 +29,13 @@ class FileReader():
 
         if not self.file_list:
             raise ValueError("No list given.")
-        else:
+        elif type(self.file_list) == str:
+            print("Found list reading on file.")
+        elif type(self.file_list) == list:
             print("Found list of {} files for datatype {}."
                 .format(len(self.file_list), self.datatype))
+        else:
+            raise IOError("Input should be either list or string.")
 
     # generate a list of input files from the files in directory
     @classmethod
