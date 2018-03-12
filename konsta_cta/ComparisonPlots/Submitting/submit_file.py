@@ -8,6 +8,46 @@ today = (f"{datetime.datetime.now():%Y-%m-%d}")
 
 import pandas as pd
 import argparse
+import warnings
+
+
+class FileSubmitter():
+	'''
+	Small class to submit jobs localy or using qsub.
+	'''
+	def __init__(self, log_name, file, runnumber, dtype, odir):
+		self.log_name = log_name
+		self.file = file
+		self.runnumber = runnumber
+		self.dtype = dtype
+		self.odir = odir
+
+	def submit_locally(self):
+		print("-----------------------------------")
+		warnings.warn("All files will be submitted at the same time.", UserWarning)
+		answer = input("Are you sure you want to continue?\n[y/n]: ")
+		if answer=="y":
+			pass
+		elif answer=="n":
+			sys.exit("exiting...")
+		else:
+			sys.exit("no valid input given.\n exiting...")
+		print("sh ./analyse_file.sh {} {} {} {}".format(file, runnumber, dtype, odir))
+
+		with open("{}.log".format(self.log_name),"wb") as out, open("{}_err.log".format(self.log_name),"wb") as err:
+			p = subprocess.Popen(['/bin/sh', "./analyse_file.sh",
+				self.file, str(self.runnumber), self.dtype, self.odir],
+				stdout=out, stderr=err)
+			print("PID number for started process:\t{}".format(p.pid))
+
+	def submit_qsub(self):
+		print("qsub -P cta -js X_9 -l h_rt=18:00:00 -l h_rss=4G -o"
+			" {}_output.txt -e {}_errors.txt ./analyse_file.sh {} {} {} {}"
+			.format(self.log_name, self.log_name, self.file, self.runnumber,
+			self.dtype, self.odir))
+		subprocess.call("qsub -l h_rt=18:00:00 -l h_rss=4G -o {}_output.txt -e {}_errors.txt ./analyse_file.sh {} {} {} {}".format(self.log_name, self.log_name, self.file, self.runnumber, self.dtype, self.odir))
+
+
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -17,6 +57,8 @@ if __name__ == '__main__':
 						help="list of NSB files")
 	parser.add_argument("--submit", type=str, default="False",
 						help="submit the jobs")
+	parser.add_argument("--qsub", type=str, default="False",
+						help="use qsub for submitting")
 	parser.add_argument("--concatenate", type=str, default="False",
 						help="concatenate all outputs")
 	parser.add_argument("--odir", type=str, default=".",
@@ -39,6 +81,13 @@ if __name__ == '__main__':
 		concatenate = True
 	elif args.concatenate in ("False", "false", "f", "no", "n", "0"):
 		concatenate = False
+	else:
+		raise argparse.ArgumentTypeError('Boolean value expected.')
+
+	if args.qsub in ("True", "true", "t", "yes", "y", "1"):
+		use_qsub = True
+	elif args.qsub in ("False", "false", "f", "no", "n", "0"):
+		use_qsub = False
 	else:
 		raise argparse.ArgumentTypeError('Boolean value expected.')
 
@@ -83,19 +132,19 @@ if __name__ == '__main__':
 				print("File to analyse: {}".format(file))
 				print("Writing logs to {}".format(log_dir))
 
-				#####################
-				# submit using qsub #
-				#####################
-				#print("qsub -P cta -js X_9 -l h_rt=18:00:00 -l h_rss=4G -o {}_output.txt -e {}_errors.txt ./analyse_file.sh {} {} {} {}".format(log_name, log_name, file, runnumber, dtype, odir))
-				#subprocess.call("qsub -l h_rt=18:00:00 -l h_rss=4G -o {}_output.txt -e {}_errors.txt ./analyse_file.sh {} {} {} {}".format(log_name, log_name, file, runnumber, dtype, odir))
+				Submitter = FileSubmitter(log_name, file, runnumber, dtype, odir)
 
-				########################
-				# submitt jobs locally #
-				########################
-				print("sh ./analyse_file.sh {} {} {} {}".format(file, runnumber, dtype, odir))
-				with open("{}.log".format(log_name),"wb") as out, open("{}_err.log".format(log_name),"wb") as err:
-					p = subprocess.Popen(['/bin/sh', "./analyse_file.sh", file, str(runnumber), dtype, odir], stdout=out, stderr=err)
-					print("PID number for started process:\t{}".format(p.pid))
+				if use_qsub:
+					#####################
+					# submit using qsub #
+					#####################
+					sys.exit("...")
+					Submitter.submit_qsub()
+				elif not use_qsub:
+					########################
+					# submitt jobs locally #
+					########################
+					Submitter.submit_locally()
 
 			# concatenate the single output files
 			if concatenate:
