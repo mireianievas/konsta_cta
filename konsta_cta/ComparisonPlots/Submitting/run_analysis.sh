@@ -8,4 +8,5 @@
 #zsh
 #source $HOME/.zshrc
 
-python submit_file.py --listGAMMA runlist_onSource.list --listNSB None --submit true --qsub false --concatenate false --odir ../Analysis_180209
+
+python submit_file.py --listGAMMA runlist_comparison_gamma_onSource_100.list --listNSB runlist_comparison_NSB.list --submit false --qsub false --concatenate true --odir /lustre/fs19/group/cta/users/kpfrang/CTAPIPE/Analysis

@@ -30,7 +30,7 @@ class FileReader():
         if not self.file_list:
             raise ValueError("No list given.")
         elif type(self.file_list) == str:
-            print("Found list reading on file.")
+            print("Reading one file.")
         elif type(self.file_list) == list:
             print("Found list of {} files for datatype {}."
                 .format(len(self.file_list), self.datatype))
@@ -47,14 +47,14 @@ class FileReader():
         return cls(file_list, datatype, max_events)
 
     # read the sources from the file in list
-    def read_files(self, files):
+    def read_files(self):
         #self.source = {}
         try:
-            for i, file in enumerate(files):
+            for i, file in enumerate(self.file_list):
                 infile = expandvars(file)
                 self.source = event_source(infile, max_events=self.max_events)
         except:
-            infile = expandvars(files)
+            infile = expandvars(self.file_list)
             self.source = event_source(infile, max_events=self.max_events)
 
     # For reading the files with generator

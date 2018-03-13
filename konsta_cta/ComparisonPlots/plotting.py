@@ -11,11 +11,19 @@ if __name__ == '__main__':
 						help="maximum number of events per file")
 	parser.add_argument("--odir", type=str, default="./Plots",
 						help="maximum number of events per file")
-	parser.add_argument("--numTELS_ENERGY", type=bool, default=False,
+	parser.add_argument("--numTELS_ENERGY", type=str, default="False",
 						help="Plot number of telescopes with image"
 						"after cleaning vs energy")
 
 	args = parser.parse_args()
+
+	if args.numTELS_ENERGY in ("True", "true", "t", "yes", "y", "1"):
+		numTELS_ENERGY = True
+	elif args.numTELS_ENERGY in ("False", "false", "f", "no", "n", "0"):
+		numTELS_ENERGY = False
+	else:
+		raise argparse.ArgumentTypeError('Boolean value expected.')
+
 
 	odir = args.odir
 	# creat ouput directory
@@ -43,6 +51,6 @@ if __name__ == '__main__':
 			" with option concatenate before?")
  
 	# generate plots
-	if (args.numTELS_ENERGY):
+	if (numTELS_ENERGY):
 		plot_numTELSvsENERGY(images_gamma, "{}/imagevsenergy"
 			"_{}events".format(odir, len(images_gamma)))

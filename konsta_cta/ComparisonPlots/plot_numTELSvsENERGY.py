@@ -107,9 +107,24 @@ def plot_numTELSvsENERGY(number_images, save=None):
     plt.hist2d(number_images.Emc_log, diff, bins=[40,max(diff)],
         cmap='viridis', norm=LogNorm())
     ax.set_xlabel("log(E$_{MC})$ / TeV", fontsize=15)
-    ax.set_ylabel("diff(trigger, cleaning)", fontsize=15)
+    ax.set_ylabel("$N_{trigger} - N_{cleaning}$", fontsize=15)
     plt.colorbar(scatter, ax=ax)
     plt.style.use(['default'])
     plt.tight_layout()
     plt.savefig(save+"_2Dhist_difference.pdf")
+    plt.close()
+
+    mask = number_images.all_images != 0
+    # 2D hist ratio
+    ratio = np.array(number_images.cleaned)[mask]/np.array(number_images.all_images)[mask]
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    plt.hist2d(number_images.Emc_log[mask], ratio, bins=40,
+        cmap='viridis', norm=LogNorm())
+    ax.set_xlabel("log(E$_{MC})$ / TeV", fontsize=15)
+    ax.set_ylabel("$N_{cleaning} / N_{trigger}$", fontsize=15)
+    plt.colorbar(scatter, ax=ax)
+    plt.style.use(['default'])
+    plt.tight_layout()
+    plt.savefig(save+"_2Dhist_ratio.pdf")
     plt.close()

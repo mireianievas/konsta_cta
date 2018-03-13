@@ -23,6 +23,7 @@ from ctapipe.image.cleaning import tailcuts_clean
 #################
 from ctapipe.image import hillas_parameters
 
+import sys
 
 class ImagePreparer():
     ''' Class to convert Hessio raw data from r0 data level
@@ -82,6 +83,7 @@ class ImagePreparer():
             
             # loop through all events
             for event in particle.source:
+                
                 event_id = event.dl0.event_id
                 n_images = 0
                 n_clean_images = 0
@@ -91,7 +93,7 @@ class ImagePreparer():
                     n_images += 1
 
                     camera = event.inst.subarray.tel[tel_id].camera
-                    
+
                     # mc Image (why are they empty???)
                     self.mc_image[dtype, event_id, tel_id] = event.mc.tel[tel_id].photo_electron_image
                     

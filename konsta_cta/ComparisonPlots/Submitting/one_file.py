@@ -9,13 +9,13 @@ import pandas as pd
 import numpy as np
 
 if __name__ == '__main__':
-
+	
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--filepath", type=str, default=None,
 					help="file to process")
 	parser.add_argument("--odir", type=str, default=".",
 					help="output directory")
-	parser.add_argument("--run", type=int, default=-1,
+	parser.add_argument("--run", type=str, default="-1",
 					help="number of file")
 	parser.add_argument("--dataType", type=str, default=".",
 					help="dataType")
@@ -26,12 +26,13 @@ if __name__ == '__main__':
 	run = args.run
 	odir = args.odir
 
-	print('Starting analysis.')
+	print('Reading File.')
 	source = FileReader(file, dtype)
-	source.read_files(file)
+	source.read_files()
+	print("Preparing images")
 	images = ImagePreparer([source])
 	images.prepare()
-
+	
 	# keys for particle and event_id
 	keys = np.array(list(images.mc_energy.keys()))
 
@@ -49,20 +50,16 @@ if __name__ == '__main__':
 
 	output_directory = "{}/{}".format(odir, dtype)
 	# creat output folder if not existing
-	os.system("mkdir .p {}".format(output_directory))
+	os.system("mkdir -p {}".format(output_directory))
 
 	# Save the output to HDF5 file
-	store = pd.HDFStore('{}/image_numbers_{}_run{}.h5'
-		.format(output_directory, dtype, run))
+	store = pd.HDFStore('{}/image_numbers_{}_run{}.h5'.format(output_directory, dtype, run))
 
 	# save the DataFrame
 	store['number_images'] = number_images
 
-	print('''
-#############################
-# Succefully analyzed file. #
-#############################
+	print("#############################")
+	print("# Succefully analyzed file. #")
+	print("#############################")
 
-'''
-	print("Output stored to {}/image_numbers_{}_run{}.h5"
-		.format(output_directory, dtype, run))
+	print("Output stored to {}/image_numbers_{}_run{}.h5".format(output_directory, dtype, run))
