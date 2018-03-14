@@ -38,7 +38,7 @@ class FileSubmitter():
 			pass
 		elif answer=="n":
 			sys.exit("exiting...")
-		print("sh ./analyse_file.sh {} {} {} {}".format(file, runnumber, dtype, odir))
+		print("sh ./local_analyse_file.sh {} {} {} {}".format(file, runnumber, dtype, odir))
 
 		with open("{}.log".format(self.log_name),"wb") as out, open("{}_err.log".format(self.log_name),"wb") as err:
 			p = subprocess.Popen(['/bin/zsh', "./local_analyse_file.sh",
