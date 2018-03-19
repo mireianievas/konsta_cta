@@ -3,22 +3,12 @@ import numpy as np
 
 # Calibration
 #############
-from ctapipe.calib.camera.r1 import HESSIOR1Calibrator
-from ctapipe.calib.camera.dl0 import CameraDL0Reducer
-from ctapipe.calib.camera import CameraDL1Calibrator
-
-r1cal = HESSIOR1Calibrator()
-dl0cal = CameraDL0Reducer()
-dl1cal = CameraDL1Calibrator()
-
-def calibrator(event):
-    r1cal.calibrate(event)
-    dl0cal.reduce(event)
-    dl1cal.calibrate(event)
+from ctapipe.calib.camera import CameraCalibrator
 
 # Image Cleaning
 ################
 from ctapipe.image.cleaning import tailcuts_clean
+
 # Parametrization
 #################
 from ctapipe.image import hillas_parameters
@@ -42,6 +32,9 @@ class ImagePreparer():
     n_clean_images = {}
     n_images = {}
 
+    phe_charge = {}
+
+
     ## QUESTION: what values for other cameras??
     # from Tino
     pe_thresh = {
@@ -49,22 +42,16 @@ class ImagePreparer():
         "LSTCam": 100,
         "NectarCam": 190}
 
+    # for analysing HESSIO file
+    r1 = "HESSIOR1Calibrator"
 
-    def __init__(self, particles=None):
-        # Input
-        #######
-        # particles - array of konsta_cta.readdata.FileReader
-        #
-
-        self.particles = particles
-        if not self.particles:
-            raise ValueError('No particle array given.')
+    def __init__(self, integrator=None, cleaner=None):
         self.keys = None
-        self.geoms = self.get_camera_geoms()
-
+        self.integrator = integrator
+        self.cleaner = cleaner
         
 
-    def prepare(self, hillas=False):
+    def prepare(self, particles, hillas=False):
         ''' Performs the processing of the images:
             calibration perfoming conversion from r0 to dl1
             image cleaning using tailcut_cleaning
@@ -72,6 +59,13 @@ class ImagePreparer():
             
             Fills the dicts for clean_images and hillas moments
         '''
+        # Input
+        #######
+        # particles - array of konsta_cta.readdata.FileReader
+        #
+
+        self.particles = particles
+        self.geoms, self.geoms_unique = self.get_camera_geoms()
 
         # loop through all particle types
         for particle in self.particles:
@@ -80,6 +74,10 @@ class ImagePreparer():
             # count number of images and number after cleaning
             self.sum_images[dtype] = 0
             self.sum_clean_images[dtype] = 0
+
+            # set up calibrator
+            calibrator = CameraCalibrator(r1_product=self.r1,
+                        integrator=self.integrator, cleaner=self.cleaner)
             
             # loop through all events
             for event in particle.source:
@@ -92,27 +90,46 @@ class ImagePreparer():
                 for tel_id in event.r0.tels_with_data:
                     n_images += 1
 
+                    # get camera information
                     camera = event.inst.subarray.tel[tel_id].camera
 
                     # mc Image (why are they empty???)
                     self.mc_image[dtype, event_id, tel_id] = event.mc.tel[tel_id].photo_electron_image
                     
-                    calibrator(event)
-                    # calibrated image
-                
-                    # Tino's solution
+                    # calibrate event
+                    calibrator.calibrate(event)
+
+                    ######################################
+                    # create output for comparison plots #
+                    ######################################
+
+                    # charge of each pixel in pe
+
+                    cam_id = camera.cam_id
+
+                    number_gains = event.dl1.tel[tel_id].image.shape[0]
+                    for gain in range(number_gains):
+                        try:
+                            self.phe_charge[cam_id,gain].extend(list(event.dl1.tel[tel_id].image[gain]))
+                        except:
+                            self.phe_charge[cam_id,gain] = list(event.dl1.tel[tel_id].image[gain])
+
+                    #####################################
+                    # Tino's solution for gain selection
                     if (camera.cam_id == np.array(list(self.pe_thresh.keys()))).any():
                         image = event.dl1.tel[tel_id].image
                         image = self.pick_gain_channel(image, camera.cam_id)
                     else:
                         image = event.dl1.tel[tel_id].image
                         image = np.reshape(image[0], np.shape(image)[1])
-                    
+
+                    ######################
                     # image cleaning
                     mask = tailcuts_clean(
                         self.geoms[tel_id], image,
                         min_number_picture_neighbors=2
                         )
+
                     # drop images that didn't survive image cleaning
                     if any(mask == True):
                         n_clean_images += 1
@@ -122,9 +139,11 @@ class ImagePreparer():
 
                         if hillas:
                             self.hillas_moments[dtype, event_id, tel_id] = hillas_parameters(
-                                self.geoms[tel_id], self.clean_images[dtype, event_id, tel_id])
+                                self.geoms[tel_id], self.clean_images[dtype, event_id, tel_id], True)
                         else:
                             pass
+
+                # count number of images at trigge level and after cleaning
                 # summary:
                 self.sum_images[dtype] += n_images
                 self.sum_clean_images[dtype] += n_clean_images
@@ -138,6 +157,7 @@ class ImagePreparer():
                     self.sum_images[dtype] - self.sum_clean_images[dtype])
                   )
         self.get_keys()
+
 
     def get_keys(self):
         # returns numpy array of the keys
@@ -166,7 +186,17 @@ class ImagePreparer():
                 else:
                     warnings.warn('Not same camera geometries for the files'
                         'occured for: {}'.format(particle.datatype))
-        return(geoms)
+
+            geoms_unique = []
+            for geo in geoms:
+                try:
+                    if not any(geoms[geo].cam_id == np.array(geoms_unique)):
+                        geoms_unique.append(geoms[geo].cam_id)
+                except:
+                    if len(geoms_unique)==0:
+                        geoms_unique.append(geoms[geo].cam_id)
+                    
+        return(geoms, geoms_unique)
 
     def pick_gain_channel(self, pmt_signal, cam_id):
         '''the PMTs on some (most?) cameras have 2 gain channels. select one
@@ -182,3 +212,4 @@ class ImagePreparer():
         else:
             pmt_signal = np.squeeze(pmt_signal)
         return pmt_signal
+
