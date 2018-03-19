@@ -11,11 +11,15 @@ FILE=$1
 RUN=$2 
 DTYPE=$3
 ODIR=$4
+INTEGRATOR=$5
+CLEANER=$6
 
 echo "Will use python version "
 which python
 #echo "with these installes packages:"
-conda list
+#conda list
+
+source activate cta-dev
 echo "--------------- Start of analysis ---------------"
 # execute the analysis
-python /afs/ifh.de/user/k/kpfrang/scratch/software/konsta_cta/konsta_cta/ComparisonPlots/Submitting/one_file.py --filepath $FILE --odir $ODIR --run $RUN --dataType $DTYPE
+python ./one_file.py --filepath $FILE --odir $ODIR --run $RUN --dataType $DTYPE --integrator $INTEGRATOR --cleaner $CLEANER

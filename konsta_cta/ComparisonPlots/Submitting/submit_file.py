@@ -7,6 +7,7 @@ import sys
 import subprocess
 import shlex
 import datetime
+import pickle
 
 today = (f"{datetime.datetime.now():%Y-%m-%d}")
 
@@ -14,51 +15,45 @@ import pandas as pd
 import argparse
 import warnings
 
-ignore_missing_files = True
+ignore_missing_files = False
 
 class FileSubmitter():
 	'''
 	Class to submit jobs localy or using qsub.
 	'''
-	def __init__(self, log_name, file, runnumber, dtype, odir):
+	def __init__(self, log_name, file, runnumber, dtype, odir, integrator, cleaner):
 		self.log_name = log_name
 		self.file = file
 		self.runnumber = runnumber
 		self.dtype = dtype
 		self.odir = odir
+		self.integrator = integrator
+		self.cleaner = cleaner
 
 	def submit_locally(self):
 		# Submit all jobs simultanously to processing on this machine
-		print("-----------------------------------")
-		warnings.warn("All files will be submitted at the same time.", UserWarning)
-		answer = ""
-		while (answer!="y") or (answer!="n"):
-			answer = input("Are you sure you want to continue?\n[y/n]: ")
-		if answer=="y":
-			pass
-		elif answer=="n":
-			sys.exit("exiting...")
-		print("sh ./local_analyse_file.sh {} {} {} {}".format(file, runnumber, dtype, odir))
+		print("sh ./local_analyse_file.sh {} {} {} {} {} {}".format(self.file, self.runnumber, self.dtype, self.odir, self.integrator, self.cleaner))
 
 		with open("{}.log".format(self.log_name),"wb") as out, open("{}_err.log".format(self.log_name),"wb") as err:
 			p = subprocess.Popen(['/bin/zsh', "./local_analyse_file.sh",
-				self.file, str(self.runnumber), self.dtype, self.odir],
+				self.file, str(self.runnumber), self.dtype, self.odir, self.integrator, self.cleaner],
 				stdout=out, stderr=err)
 			print("PID number for started process:\t{}".format(p.pid))
 
 	def submit_qsub(self):
-		# use qsub to submitt the files to Batch Farm
+		'''use qsub to submitt the files to Batch Farm
 
-		# build the submission command. More qsub options 
-		# are passed in qsub_analyse_file.sh
-		#
-		# Important: maximum usage of memory for each job
-		# has to be large enough. This is specified using the
-		# -l h_rss=8G option of qsub. If the consumed memory
-		# of one job is above the requested h_rss limit, this
-		# process will be killed by the batch system sending
-		# an SIGKILL signal.
-		submission = "qsub -o {}_output.txt -e {}_errors.txt ./qsub_analyse_file.sh {} {} {} {}".format(self.log_name, self.log_name, self.file, self.runnumber, self.dtype, self.odir)
+		build the submission command. More qsub options 
+		are passed in qsub_analyse_file.sh
+		
+		Important: maximum usage of memory for each job
+		has to be large enough. This is specified using the
+		-l h_rss=8G option of qsub. If the consumed memory
+		of one job is above the requested h_rss limit, this
+		process will be killed by the batch system sending
+		an SIGKILL signal.
+		'''
+		submission = "qsub -o {}_output.txt -e {}_errors.txt ./qsub_analyse_file.sh {} {} {} {} {} {}".format(self.log_name, self.log_name, self.file, self.runnumber, self.dtype, self.odir, self.integrator, self.cleaner)
 		print(submission)
 		subprocess.call(submission, shell=True)
 
@@ -85,6 +80,8 @@ if __name__ == '__main__':
 	# create folder for ouput:
 	os.system("mkdir -p {}".format(odir))
 
+
+	# read the input
 	if args.submit in ("True", "true", "t", "yes", "y", "1"):
 		submit = True
 	elif args.submit in ("False", "false", "f", "no", "n", "0"):
@@ -109,7 +106,19 @@ if __name__ == '__main__':
 	if submit & concatenate:
 		raise ValueError("submit and concatenate not executable at same time")
 
-	# collect the inputs
+	# don't process many files locally...
+	if (submit) & (not use_qsub):
+		print("-----------------------------------")
+		warnings.warn("All files will be submitted at the same time.", UserWarning)
+		answer = ""
+		while (answer!="y") or (answer!="n"):
+			answer = str(input("Are you sure you want to continue?\n[y/n]: "))
+			if answer=="y":
+				break
+			elif answer=="n":
+				sys.exit("exiting...")
+
+	# collect the input files
 	lists = []
 	dtypes = []
 	for i, (arg, dtype) in enumerate(zip([args.listGAMMA, args.listNSB],["gamma", "NSB"])):
@@ -117,10 +126,13 @@ if __name__ == '__main__':
 			lists.append(arg)
 			dtypes.append(dtype)
 
-	for file_list, dtype in zip(lists, dtypes):
+	for i, (file_list, dtype) in enumerate(zip(lists, dtypes)):
 		if concatenate:
 			# generate empty DataFrame
 			number_images = pd.DataFrame(columns=["Emc", "all_images", "cleaned"])
+
+			phe_charge = {}
+
 		# read the list of files
 		with open(file_list) as f:
 			files = f.read().splitlines()
@@ -154,33 +166,69 @@ if __name__ == '__main__':
 				# delet existing log files
 				os.system("rm {}_*.txt".format(log_name))
 
-				Submitter = FileSubmitter(log_name, file, runnumber, dtype, odir)
+				#loop through all methods:
+				for integrator in ['GlobalPeakIntegrator', 'LocalPeakIntegrator', 'NeighbourPeakIntegrator', 'AverageWfPeakIntegrator']:
+				    for cleaner in ['NullWaveformCleaner', 'CHECMWaveformCleanerAverage', 'CHECMWaveformCleanerLocal']:
 
-				if use_qsub:
-					#####################
-					# submit using qsub #
-					#####################
-					#sys.exit("...")
-					Submitter.submit_qsub()
-				elif not use_qsub:
-					########################
-					# submitt jobs locally #
-					########################
-					Submitter.submit_locally()
+						Submitter = FileSubmitter(log_name, file, runnumber, dtype, odir, integrator, cleaner)
+
+						if use_qsub:
+							#####################
+							# submit using qsub #
+							#####################
+							#sys.exit("...")
+							Submitter.submit_qsub()
+						elif not use_qsub:
+							########################
+							# submitt jobs locally #
+							########################
+							Submitter.submit_locally()
 
 			# concatenate the single output files
 			if concatenate & (not ignore_missing_files):
 				# get output directory
 				output_directory = "{}/{}".format(odir, dtype)
 				
-				# get stored dataframes
-				store = pd.HDFStore('{}/image_numbers_{}_run{}.h5'
-								.format(output_directory, dtype, runnumber))
-				_number_images = store['number_images']
-				# append all files to one DF
-				number_images = number_images.append(_number_images)
+				############ pixel charges ###########
+				try:
+					with open('{}/pixel_pe_{}_run{}.pkl'.format(
+						output_directory, dtype, runnumber), 'rb') as f:
+						_phe_charge = pickle.load(f)
+				except:
+					print('{}/pixel_pe_{}_run{}.pkl could not be loaded.'.format(
+					output_directory, dtype, runnumber))
 
+				# append everything to one dict
+				for key in list(_phe_charge.keys()):
+					try:
+						phe_charge[key].extend(_phe_charge[key])
+					except:
+						print("Adding key {} to dict".format(key))
+						phe_charge[key] = _phe_charge[key]
+
+
+				########## number of images ##########
+				# get stored dataframes
+				try:
+					store = pd.HDFStore('{}/image_numbers_{}_run{}.h5'
+									.format(output_directory, dtype, runnumber))
+					_number_images = store['number_images']
+					# append all files to one DF
+					number_images = number_images.append(_number_images)
+				except:
+					print('{}/image_numbers_{}_run{}.h5 could not be loaded.'
+									.format(output_directory, dtype, runnumber))
+
+
+		# save collected informations to files
 		if concatenate & (not ignore_missing_files):
+
+			############ pixel charges ###########
+			with open('{}/pixel_pe_{}_allruns.pkl'.format(output_directory, dtype), 'wb') as f:
+				pickle.dump(phe_charge, f, pickle.HIGHEST_PROTOCOL)
+
+
+			########## number of images ##########
 			store = pd.HDFStore('{}/image_numbers_{}_allruns.h5'
 					.format(output_directory, dtype))
 			# Save the output to HDF5 file
@@ -191,6 +239,10 @@ if __name__ == '__main__':
 		if concatenate & ignore_missing_files & (dtype=="gamma"):
 
 			output_directory = "{}/{}".format(odir, dtype)
+			############ pixel charges ###########
+
+
+			########## number of images ##########
 			# delet existing _allruns.h5 file
 			os.system("rm {}/image_numbers_{}_allruns.h5".format(output_directory, dtype))
 
