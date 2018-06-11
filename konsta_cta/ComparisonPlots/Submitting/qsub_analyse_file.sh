@@ -12,9 +12,9 @@
 #$ -l h_cpu=11:29:00
 #
 #(the maximum memory usage of this job)
-#$ -l h_rss=8G
+#$ -l h_rss=15G
 #
-#$ -l tmpdir_size=40G
+#$ -l tmpdir_size=30G
 #
 #$ -P cta
 #$ -js 9
@@ -30,16 +30,21 @@ source $HOME/.zshrc
 
 # read the inputs
 FILE=$1
-RUN=$2 
-DTYPE=$3
-ODIR=$4
-INTEGRATOR=$5
-CLEANER=$6
+RUN=$2
+ZENITH=$3
+DIRECTION=$4
+DTYPE=$5
+ODIR=$6
+INTEGRATOR=$7
+CLEANER=$8
+TELS=$9
+
+cd ~/scratch/software/konsta_cta/konsta_cta/ComparisonPlots/Submitting
 
 echo "Will use python version "
 which python
 #echo "with these installes packages:"
-conda list
+#conda list
 echo "--------------- Start of analysis ---------------"
 # execute the analysis
-python /afs/ifh.de/user/k/kpfrang/scratch/software/konsta_cta/konsta_cta/ComparisonPlots/Submitting/one_file.py --filepath $FILE --odir $ODIR --run $RUN --dataType $DTYPE --integrator $INTEGRATOR --cleaner $CLEANER
+python /afs/ifh.de/user/k/kpfrang/scratch/software/konsta_cta/konsta_cta/ComparisonPlots/Submitting/one_file.py --filepath $FILE --odir $ODIR --run $RUN --zenith $ZENITH --direction $DIRECTION --dataType $DTYPE --integrator $INTEGRATOR --cleaner $CLEANER --tels $TELS

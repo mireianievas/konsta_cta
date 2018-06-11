@@ -11,7 +11,7 @@ import pickle
 
 today = (f"{datetime.datetime.now():%Y-%m-%d}")
 
-import pandas as pd
+import pandas as pdS
 import argparse
 import warnings
 
@@ -21,7 +21,7 @@ class FileSubmitter():
 	'''
 	Class to submit jobs localy or using qsub.
 	'''
-	def __init__(self, log_name, file, runnumber, dtype, odir, integrator, cleaner):
+	def __init__(self, log_name, file, runnumber, zenith, direction, dtype, odir, integrator, cleaner, tels_to_use):
 		self.log_name = log_name
 		self.file = file
 		self.runnumber = runnumber
@@ -29,15 +29,19 @@ class FileSubmitter():
 		self.odir = odir
 		self.integrator = integrator
 		self.cleaner = cleaner
+		self.zenith = zenith
+		self.direction = direction
+		self.tels_to_use = tels_to_use
 
 	def submit_locally(self):
-		# Submit all jobs simultanously to processing on this machine
-		print("sh ./local_analyse_file.sh {} {} {} {} {} {}".format(self.file, self.runnumber, self.dtype, self.odir, self.integrator, self.cleaner))
+		# Submit all jobs simultanously to processing on this machines
+		print("sh ./local_analyse_file.sh {} {} {} {} {} {}".format(
+					self.file, self.runnumber, self.dtype, self.odir, self.integrator, self.cleaner))
 
 		with open("{}.log".format(self.log_name),"wb") as out, open("{}_err.log".format(self.log_name),"wb") as err:
 			p = subprocess.Popen(['/bin/zsh', "./local_analyse_file.sh",
-				self.file, str(self.runnumber), self.dtype, self.odir, self.integrator, self.cleaner],
-				stdout=out, stderr=err)
+				self.file, str(self.runnumber), self.zenith, self.direction, self.zenith_direction[1],
+				self.dtype, self.odir, self.integrator, self.cleaner], stdout=out, stderr=err)
 			print("PID number for started process:\t{}".format(p.pid))
 
 	def submit_qsub(self):
@@ -53,18 +57,25 @@ class FileSubmitter():
 		process will be killed by the batch system sending
 		an SIGKILL signal.
 		'''
-		submission = "qsub -o {}_output.txt -e {}_errors.txt ./qsub_analyse_file.sh {} {} {} {} {} {}".format(self.log_name, self.log_name, self.file, self.runnumber, self.dtype, self.odir, self.integrator, self.cleaner)
+
+		submission = "qsub -o {}_{}_{}_output.txt -e {}_errors.txt ./qsub_analyse_file.sh {} {} {} {} {} {} {} {} {}".format(
+			self.log_name, self.integrator[:5], self.cleaner[:5], self.log_name, self.file,
+			self.runnumber, self.zenith, self.direction, self.dtype,
+			self.odir, self.integrator, self.cleaner, self.tels_to_use)
 		print(submission)
 		subprocess.call(submission, shell=True)
-
 
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--listGAMMA", type=str, default=None,
 						help="list of gamma files")
-	parser.add_argument("--listNSB", type=str, default=None,
+	parser.add_argument("--listhighNSB", type=str, default=None,
 						help="list of NSB files")
+	parser.add_argument("--listPROTON", type=str, default=None,
+						help="list of proton files")
+	parser.add_argument("--tels_to_use", type=str, default="all",
+						help="list of proton files")
 	parser.add_argument("--submit", type=str, default="False",
 						help="submit the jobs")
 	parser.add_argument("--qsub", type=str, default="False",
@@ -73,13 +84,17 @@ if __name__ == '__main__':
 						help="concatenate all outputs")
 	parser.add_argument("--odir", type=str, default=".",
 						help="output directory")
+	parser.add_argument("--methods", type=str, default="all",
+						help="output directory")
 
 	args = parser.parse_args()
 	
 	odir = args.odir
+	methods = args.methods
 	# create folder for ouput:
 	os.system("mkdir -p {}".format(odir))
 
+	tels_to_use = args.tels_to_use
 
 	# read the input
 	if args.submit in ("True", "true", "t", "yes", "y", "1"):
@@ -121,7 +136,7 @@ if __name__ == '__main__':
 	# collect the input files
 	lists = []
 	dtypes = []
-	for i, (arg, dtype) in enumerate(zip([args.listGAMMA, args.listNSB],["gamma", "NSB"])):
+	for i, (arg, dtype) in enumerate(zip([args.listGAMMA, args.listPROTON, args.listhighNSB],["gamma", "proton", "NSB"])):
 		if bool(arg) & (arg != "None"):
 			lists.append(arg)
 			dtypes.append(dtype)
@@ -142,9 +157,22 @@ if __name__ == '__main__':
 		# iterate each of the files	    
 		for file in files:
 			# get runnumber
-			substr = file[file.find("run")+3:file.find("_cta")]
+			substr = file[file.find("run")+3:file.find("_cta-")]
+
 			runnumber = [int(s) for s in substr.split("_") if s.isdigit()][0]
-			if dtype == "gamma":
+
+			# get zenith angle and direction
+			if (dtype == "gamma") | (dtype == "proton"):
+				substr = file[file.find("/{}".format(dtype))+len(dtype)+2:file.find("run")-1]
+				### for test directory uncomment for actual file!
+				#substr = file[file.find("/Test/")+len(dtype)+2:file.find("run")-1]
+				zen_dir = substr.split("_")[1:]
+			elif dtype == "NSB":
+				substr = file[file.find("/gamma")+len(dtype):file.find("run")-1]
+				zen_dir = substr.split("_")[1:]
+
+
+			if (dtype == "gamma") | (dtype == "proton"):
 				pass
 			elif dtype == "NSB":
 				substr = file[file.find("baseline")+8:file.find(".simtel")]
@@ -154,23 +182,32 @@ if __name__ == '__main__':
 
 			if submit:
 				# create folder for the log files
-				log_dir = "{}/LOGS/{}/".format(odir, today)
+				log_dir = "{}/LOGS/{}/{}/".format(odir, today, dtype)
 				os.system("mkdir -p {}".format(log_dir))
-				# using data type and runnumber for the log files
-				log_name = "{}{}_run{}".format(log_dir, dtype, runnumber)
-
 				print("-------------- start analysing next file --------------")
 				print("Submitting file with runnumber {} for {}".format(runnumber, dtype))
 				print("File to analyse: {}".format(file))
 				print("Writing logs to {}".format(log_dir))
-				# delet existing log files
-				os.system("rm {}_*.txt".format(log_name))
+
+				if methods=='all':
+					integrators = ['GlobalPeakIntegrator', 'LocalPeakIntegrator', 'NeighbourPeakIntegrator', 'AverageWfPeakIntegrator']
+					cleaners = ['NullWaveformCleaner', 'CHECMWaveformCleanerAverage', 'CHECMWaveformCleanerLocal']
+				elif methods=='default':
+					integrators = ['NeighbourPeakIntegrator']
+					cleaners = ['NullWaveformCleaner']
 
 				#loop through all methods:
-				for integrator in ['GlobalPeakIntegrator', 'LocalPeakIntegrator', 'NeighbourPeakIntegrator', 'AverageWfPeakIntegrator']:
-				    for cleaner in ['NullWaveformCleaner', 'CHECMWaveformCleanerAverage', 'CHECMWaveformCleanerLocal']:
+				for integrator in integrators:
+					for cleaner in cleaners:			
+						# using data type and runnumber for the log files
+						log_name = "{}{}_{}_{}_run{}_{}_{}".format(log_dir, dtype, zen_dir[0], zen_dir[1], runnumber, integrator[:4], cleaner[:4])
+						# delet existing log files
+						os.system("rm {}_*.txt".format(log_name))
 
-						Submitter = FileSubmitter(log_name, file, runnumber, dtype, odir, integrator, cleaner)
+						#if cleaner == "CHECMWaveformCleanerAverage":
+						#	sys.exit("exiting...")
+
+						Submitter = FileSubmitter(log_name, file, runnumber, zen_dir[0], zen_dir[1], dtype, odir, integrator, cleaner, tels_to_use)
 
 						if use_qsub:
 							#####################
@@ -183,6 +220,10 @@ if __name__ == '__main__':
 							# submitt jobs locally #
 							########################
 							Submitter.submit_locally()
+
+
+
+
 
 			# concatenate the single output files
 			if concatenate & (not ignore_missing_files):
