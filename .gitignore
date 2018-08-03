@@ -4,8 +4,10 @@
 *.log
 *~
 *h5
-*.list
+
 *.pdf
+
+._*
 
 Data
 
