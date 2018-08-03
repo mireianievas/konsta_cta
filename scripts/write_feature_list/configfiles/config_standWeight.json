@@ -1,0 +1,67 @@
+{	
+	"mode": "write_lists",
+	"ctapipe_aux_dir": "./ctapipe_aux_dir",
+	"Preparer":{
+		"tail_thresholds":{
+			"ASTRICam": [5, 7],
+			"FlashCam": [12, 15],
+			"LSTCam": [5, 10],
+			"NectarCam": [4, 8],
+			"DigiCam": [3, 6],
+			"CHEC": [2, 4],
+			"SCTCam": [1.5, 3]
+	   },
+	   "pe_thresh": {
+		    "ASTRICam": 14,
+		    "LSTCam": 100,
+		    "NectarCam": 190
+		},
+		"ChargeExtration":{
+			"ChargeExtractorProduct": "NeighbourPeakIntegrator",
+			"WaveformCleanerProduct": "NullWaveformCleaner"
+		},
+		"DirReco":{
+			"weights": "default",
+			"LUT": "direction_weights_LUT.pickle",
+			"min_stat": 5,
+			"wl_ratio_cut":{
+				"ASTRICam": 0.6,
+				"FlashCam": 0.7,
+				"LSTCam": 0.7,
+				"NectarCam": 0.7,
+				"DigiCam": 0.7,
+				"CHEC": 0.6
+			}
+		},
+		"quality_cuts": {
+		    "size": 50,
+		    "multiplicity":{
+				"ASTRICam": 3,
+				"FlashCam": 3,
+				"LSTCam": 3,
+				"NectarCam": 3,
+				"DigiCam": 3,
+				"CHEC": 3,
+				"SCTCam": 3
+		    },
+			"leakage_cut":{
+				"method": "fraction",
+				"dist": "mean",
+				"radius": 0.8,
+				"rows": 2,
+				"frac": 0.15
+			}
+		}
+	},
+	"make_direction_LUT":{
+		"size_max":{
+		    "NectarCam": 2000000,
+		    "FlashCam": 2000000,
+		    "LSTCam": 10000000,
+		    "ASTRICam": 500000,
+		    "DigiCam": 50000,
+		    "CHEC": 50000
+		},
+		"bins": [20, 20]
+	}
+}
