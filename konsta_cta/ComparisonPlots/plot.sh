@@ -1,7 +1,11 @@
 #!bin/bash
 
 ODIR="./Plots"
+<<<<<<< HEAD
+DAY="180716"
+=======
 DAY="180417"
+>>>>>>> 507fdcf53c4464f4822d763ecffe7109305ed0d6
 
 rm -r ./HistEventDisplay
 sh extractHists.sh
@@ -14,7 +18,11 @@ HILLAS="true"
 # Hyperarray #
 ##############
 
+<<<<<<< HEAD
+python plotting.py --odir="$ODIR/hyperarray/$DAY/new_tubes_ED" --datadir "/lustre/fs19/group/cta/users/kpfrang/CTAPIPE/Analysis_hyperarray/neighbors0_adapted_window" --EventDisplayDir "./HistEventDisplay/hyperarray/" --MARSDir "./Data/MARS/" --numTELS_ENERGY $TELNUM --charge_distributions $CHARGE --hillas $HILLAS
+=======
 python plotting.py --odir="$ODIR/hyperarray/$DAY/neighbors0_adapted_window" --datadir "/lustre/fs19/group/cta/users/kpfrang/CTAPIPE/Analysis_hyperarray/neighbors0_adapted_window" --EventDisplayDir "./HistEventDisplay/hyperarray/" --MARSDir "./MARS/" --numTELS_ENERGY $TELNUM --charge_distributions $CHARGE --hillas $HILLAS &
+>>>>>>> 507fdcf53c4464f4822d763ecffe7109305ed0d6
 
 ############
 # high NSB #

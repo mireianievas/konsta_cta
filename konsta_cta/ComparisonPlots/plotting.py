@@ -232,8 +232,14 @@ if __name__ == '__main__':
 	ED_proton_raw = read_histos(directory=EDdir, dtype="raw/proton")
 
 	# data with errors
+<<<<<<< HEAD
+	ED_gamma_err = read_histos_with_errors(directory=EDdir, dtype="with_err/gamma_new_tubes")
+	######### no data for protons.
+	ED_proton_err = read_histos_with_errors(directory=EDdir, dtype="with_err/gamma_new_tubes")
+=======
 	ED_gamma_err = read_histos_with_errors(directory=EDdir, dtype="with_err/gamma")
 	ED_proton_err = read_histos_with_errors(directory=EDdir, dtype="with_err/gamma")
+>>>>>>> 507fdcf53c4464f4822d763ecffe7109305ed0d6
 
 	###### select which EventDisplay output to use here:
 	if EDdir=="./HistEventDisplay/hyperarray/":

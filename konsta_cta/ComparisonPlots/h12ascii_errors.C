@@ -20,6 +20,10 @@ void h12ascii_errors(TString filename, TString odir) {
 
 		Int_t n = h->GetNbinsX();
 
+<<<<<<< HEAD
+		// starting at 2 as fist entry is sumation of all entries?
+=======
+>>>>>>> 507fdcf53c4464f4822d763ecffe7109305ed0d6
 		for (Int_t i=1; i<=n; i++) {
 			outputfile << h->GetBinLowEdge(i) << " " << h->GetBinContent(i) << " " << h->GetBinWidth(i) << " " << h->GetBinError(i) << "\n";
 		}

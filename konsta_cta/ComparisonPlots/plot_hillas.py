@@ -53,6 +53,13 @@ def change_binning(histo, number_to_sum):
 	return bins_ED, hist_sum
 
 def change_binning_error(histo, number_to_sum):
+<<<<<<< HEAD
+	histo.hists[0] = 0
+	histo.error[0] = 0
+	histo.hists[1] = 0
+	histo.error[1] = 0
+=======
+>>>>>>> 507fdcf53c4464f4822d763ecffe7109305ed0d6
 	histogram = np.array(histo.hists)
 	error = np.array(histo.error)
 	hist_sum = None
@@ -832,6 +839,13 @@ def plot_hillas(hillas, EventDisplay, MARS, tel_list, save=None, compare=None, h
 					else:
 						bins_ED, hist_sum = change_binning(ED_hist, number_to_sum)
 
+<<<<<<< HEAD
+					print("--------------------{}-----------------------------".format(cam))
+					print("{}".format(np.array(hist_sum)[~np.isnan(hist_sum)]))
+					print(ED_hist.head(30))
+
+=======
+>>>>>>> 507fdcf53c4464f4822d763ecffe7109305ed0d6
 					if normed:
 						# norm to one
 						hist_sum = hist_sum / np.sum(hist_sum[~np.isnan(hist_sum)])
