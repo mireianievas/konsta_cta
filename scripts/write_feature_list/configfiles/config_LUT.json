@@ -22,7 +22,7 @@
 		},
 		"DirReco":{
 			"weights": "LUT",
-			"LUT": "direction_weights_LUT.json",
+			"LUT": "direction_weights_LUT_all.json",
 			"min_stat": 5,
 			"wl_ratio_cut":{
 				"ASTRICam": 0.7,

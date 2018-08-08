@@ -1,5 +1,5 @@
 {	
-	"mode": "merge_LUT",
+	"mode": "make_direction_LUT",
 	"ctapipe_aux_dir": "./ctapipe_aux_dir",
 	"Preparer":{
 		"tail_thresholds":{
@@ -22,7 +22,7 @@
 		},
 		"DirReco":{
 			"weights": "default",
-			"LUT": "direction_weights_LUT.json",
+			"LUT": "direction_weights_LUT_diffuse.json",
 			"min_stat": 0,
 			"wl_ratio_cut":{
 				"ASTRICam": 1,
@@ -38,6 +38,7 @@
 		    "multiplicity":{
 		    	"method": "None",
 				"cuts":{
+					"total": 0,
 					"ASTRICam": 0,
 					"FlashCam": 0,
 					"LSTCam": 0,
@@ -48,11 +49,11 @@
 				}
 			},
 			"leakage_cut":{
-				"method": "None",
+				"method": "fraction",
 				"dist": "mean",
 				"radius": 1,
 				"rows": 2,
-				"frac": 1.0
+				"frac": 0.15
 			}
 		}
 	},

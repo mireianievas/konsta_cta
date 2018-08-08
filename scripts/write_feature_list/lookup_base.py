@@ -141,7 +141,7 @@ class LookupBase:
                     for i in range(dimensions):
                         bins[cam] += [loaded.lookup[cam][i + 1]]
 
-                # controll if binning is equal
+                # control if binning is equal
                 bins_match = True
                 for i in range(dimensions):
                     bins_match = (bins_match and (
@@ -204,8 +204,8 @@ class LookupBase:
         return statistic, value
 
     def display_lookup(self, xlabel="attr_1", ylabel="attr_2",
-    				   figsize=None, xscale="log", yscale="linear",
-    				   cmap="inferno"):
+                figsize=None, xscale="log", yscale="linear",
+                cmap="inferno"):
         '''
         plot the look up tables stored in dict self.lookup. For each
         key a new line is printed with the histogram and the lookup
@@ -216,9 +216,13 @@ class LookupBase:
 
         Parameters
         ----------
-        lookup : dictionary
-            dictionary containing the look up tables
-        figsize : tuple or list
+        xlabel : string
+        ylabel : string
+        figsize : tuple, list
+        xscale : string
+            scale to use for x-axis
+        yscale : string
+            scale to use for y-axis
         cmap : string
             python colormap
         '''

@@ -22,7 +22,7 @@
 		},
 		"DirReco":{
 			"weights": "LUT",
-			"LUT": "direction_weights_LUT.json",
+			"LUT": "direction_weights_LUT_all.json",
 			"min_stat": 5,
 			"wl_ratio_cut":{
 				"ASTRICam": 0.7,
@@ -39,10 +39,10 @@
 		    	"method": "per_type_remove",
 				"cuts":{
 					"total": 4,
-					"FlashCam": 2,
-					"LSTCam": 2,
-					"NectarCam": 2,
-					"SCTCam": 2,
+					"FlashCam": 4,
+					"LSTCam": 4,
+					"NectarCam": 4,
+					"SCTCam": 4,
 					"DigiCam": 4,
 					"CHEC": 4,
 					"ASTRICam": 4

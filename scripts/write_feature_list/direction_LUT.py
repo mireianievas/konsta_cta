@@ -10,6 +10,7 @@ from lookup_base import *
 from astropy import units as u
 import numpy as np
 
+
 class LookupGenerator(LookupBase):
     '''
     class to generate a look up tabel for the weights of
@@ -169,7 +170,7 @@ class LookupGenerator(LookupBase):
             # add to the histogram
             self.lookup[cam] = np.array(hist + (np.reshape(dca2_means, bins),))
 
-        return self.lookup
+        #return self.lookup
 
     def get_weight_from_LUT(self, params, cam_id, min_stat=5, ratio_cut=1.):
         '''
@@ -178,8 +179,8 @@ class LookupGenerator(LookupBase):
         Parameters
         ----------
         params : `HillasParametersContainer`
-        LUT : tuple
-            tuple containing the histogram and the lookup table
+        cam_id : string
+            table to look value up
         min_stat : integer
             minimum number of entries required in each bin
         ratio_cut : integer or float
