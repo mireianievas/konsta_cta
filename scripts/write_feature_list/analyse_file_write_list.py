@@ -2,7 +2,7 @@ from ctapipe.io import event_source  # file reader
 
 # perpare a event
 from prepare_featurelist import PrepareList, MultiplicityException
-from direction_LUT import *
+from konsta_cta.reco.direction_LUT import *
 from ctapipe.reco.HillasReconstructor import TooFewTelescopesException
 
 # read configurations

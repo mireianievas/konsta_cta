@@ -6,7 +6,7 @@ LUT for direction reconstruction.
 from ctapipe.coordinates import CameraFrame, HorizonFrame
 from astropy.coordinates import SkyCoord
 
-from lookup_base import *
+from konsta_cta.reco.lookup_base import *
 from astropy import units as u
 import numpy as np
 

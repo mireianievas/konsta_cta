@@ -10,7 +10,7 @@ from ctapipe.image import hillas_parameters  # hillas parametrization
 from ctapipe.utils import linalg
 from traitlets.config import Config  # configuration handeling
 from cutter import *  # apply quality cuts
-from direction_LUT import *
+from konsta_cta.reco.direction_LUT import *
 
 
 class PrepareList(Cutter):
