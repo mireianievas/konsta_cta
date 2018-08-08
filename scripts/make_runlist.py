@@ -1,57 +1,66 @@
+import sys
 import os
 import numpy as np
 import glob
 import argparse
+import errno
 
-if __name__=="__main__":
-	parser = argparse.ArgumentParser()
-	parser.add_argument("--directory", type=str, default=None,
-						help="directory with stored files")
-	parser.add_argument("--extension", type=str, default=None,
-						help="extension to search for")
-	parser.add_argument("--nfiles", type=int, default=100,
-						help="number of files to select")
-	parser.add_argument("--shuffle", type=bool, default=True,
-						help="shuffle before selection")
-	parser.add_argument("--outname", type=str, default=".",
-						help="path output directory")
-	args = parser.parse_args()
-	
-	directory = args.directory
-	extension = args.extension
-	nfiles = args.nfiles
-	shuffle = args.shuffle
-	outname = args.outname
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--directory", type=str, default=None,
+                        help="directory with stored files")
+    parser.add_argument("--extension", type=str, default=None,
+                        help="extension to search for")
+    parser.add_argument("--nfiles", type=int, default=100,
+                        help="number of files to select")
+    parser.add_argument("--shuffle", type=bool, default=True,
+                        help="shuffle before selection")
+    parser.add_argument("--outname", type=str, default=".",
+                        help="path output directory")
+    args = parser.parse_args()
 
-	if os.path.exists(outname):
-		print("The file {} already exists".format(outname))
+    directory = args.directory
+    extension = args.extension
+    nfiles = args.nfiles
+    if args.shuffle in ["True", "true"]:
+        shuffle = True
+    else:
+        shuffle = False
+    outname = args.outname
 
-		merge = input("Overwrite file? [y/n] ")
-		if merge == "y":
-			pass
-		elif merge == "n":
-			sys.exit("exiting...")
-		else:
-			sys.exit("invalid option {}".format(merge))
+    if os.path.exists(outname):
+        print("The file {} already exists".format(outname))
 
-	elif not os.path.exists(os.path.dirname(outname)):
-	    try:
-	        os.makedirs(os.path.dirname(outname))
-	    except OSError as exc: # Guard against race condition
-	        if exc.errno != errno.EEXIST:
-	            raise
+        merge = input("Overwrite file? [y/n] ")
+        if merge == "y":
+            pass
+        elif merge == "n":
+            sys.exit("exiting...")
+        else:
+            sys.exit("invalid option {}".format(merge))
 
-	files = glob.glob("{}/*{}".format(directory, extension))
+    elif not os.path.exists(os.path.dirname(outname)):
+        try:
+            os.makedirs(os.path.dirname(outname))
+        except OSError as exc:  # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
 
-	if len(files) < nfiles:
-		raise ValueError("Can't select more files than available."
-						 "Maximum number ist {}".format(len(files)))
+    files = glob.glob("{}/*{}".format(directory, extension))
 
-	if shuffle:
-		np.random.shuffle(files)
+    if len(files) < nfiles:
+        raise ValueError("Can't select more files than available."
+                         "Maximum number ist {}".format(len(files)))
 
-	selected_files = files[:nfiles]
+    if shuffle:
+        np.random.shuffle(files)
 
-	np.savetxt(outname, selected_files, delimiter='\n', fmt='%s')
+    if nfiles > 0:
+        files = files[:nfiles]
+    else:
+        print("Will write list with all files")
+        pass
 
-	print("{} files were written to {}".format(nfiles, outname))
+    np.savetxt(outname, files, delimiter='\n', fmt='%s')
+
+    print("{} files were written to {}".format(len(files), outname))
