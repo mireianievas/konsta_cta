@@ -1,6 +1,3 @@
-from astropy import units as u
-import numpy as np
-
 from ctapipe.calib.camera import CameraCalibrator  # calibration
 from ctapipe.reco.HillasReconstructor import \
     HillasReconstructor, TooFewTelescopesException  # direction reconstruction
@@ -9,7 +6,7 @@ from ctapipe.image.cleaning import tailcuts_clean  # image cleaning
 from ctapipe.image import hillas_parameters  # hillas parametrization
 from ctapipe.utils import linalg
 from traitlets.config import Config  # configuration handeling
-from cutter import *  # apply quality cuts
+from konsta_cta.cutter import *  # apply quality cuts
 from konsta_cta.reco.direction_LUT import *
 
 

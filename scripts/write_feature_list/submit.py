@@ -128,7 +128,7 @@ if __name__ == '__main__':
     ctapipe_aux_dir = os.path.abspath(config["ctapipe_aux_dir"])
 
     if config["mode"] == "merge_LUT":
-        from direction_LUT import *
+        from konsta_cta.reco.direction_LUT import *
         import numpy as np
 
         LUTfile = "{}/{}".format(ctapipe_aux_dir, config["Preparer"]["DirReco"]["LUT"])
