@@ -1,5 +1,6 @@
 {	
 	"mode": "write_list_dca",
+	"verbose": "False",
 	"ctapipe_aux_dir": "./ctapipe_aux_dir",
 	"Preparer":{
 		"tail_thresholds":{

@@ -1,6 +1,6 @@
-{	
-	"mode": "write_lists",
-	"verbose": "False",
+{
+	"mode": "make_direction_LUT",
+	"verbose": "True",
 	"ctapipe_aux_dir": "./ctapipe_aux_dir",
 	"Preparer":{
 		"tail_thresholds":{
@@ -23,32 +23,36 @@
 		},
 		"DirReco":{
 			"weights": "default",
-			"LUT": "direction_weights_LUT.pickle",
-			"min_stat": 5,
+			"LUT": "direction_weights_LUT_diffuse.json",
+			"min_stat": 0,
 			"wl_ratio_cut":{
-				"ASTRICam": 0.6,
-				"FlashCam": 0.7,
-				"LSTCam": 0.7,
-				"NectarCam": 0.7,
-				"DigiCam": 0.7,
-				"CHEC": 0.6
+				"ASTRICam": 1,
+				"FlashCam": 1,
+				"LSTCam": 1,
+				"NectarCam": 1,
+				"DigiCam": 1,
+				"CHEC": 1
 			}
 		},
 		"quality_cuts": {
-		    "size": 50,
+		    "size": 0,
 		    "multiplicity":{
-				"ASTRICam": 3,
-				"FlashCam": 3,
-				"LSTCam": 3,
-				"NectarCam": 3,
-				"DigiCam": 3,
-				"CHEC": 3,
-				"SCTCam": 3
-		    },
+		    	"method": "None",
+				"cuts":{
+					"total": 0,
+					"ASTRICam": 0,
+					"FlashCam": 0,
+					"LSTCam": 0,
+					"NectarCam": 0,
+					"DigiCam": 0,
+					"CHEC": 0,
+					"SCTCam": 0
+				}
+			},
 			"leakage_cut":{
 				"method": "fraction",
 				"dist": "mean",
-				"radius": 0.8,
+				"radius": 1,
 				"rows": 2,
 				"frac": 0.15
 			}
@@ -56,12 +60,12 @@
 	},
 	"make_direction_LUT":{
 		"size_max":{
-		    "NectarCam": 2000000,
-		    "FlashCam": 2000000,
-		    "LSTCam": 10000000,
-		    "ASTRICam": 500000,
-		    "DigiCam": 50000,
-		    "CHEC": 50000
+		    "NectarCam": 3000000,
+		    "FlashCam": 3000000,
+		    "LSTCam": 3000000,
+		    "ASTRICam": 3000000,
+		    "DigiCam": 800000,
+		    "CHEC": 800000
 		},
 		"bins": [20, 20]
 	}

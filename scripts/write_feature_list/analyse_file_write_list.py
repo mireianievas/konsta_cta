@@ -105,14 +105,7 @@ if __name__ == '__main__':
     # read the simtel file
     source = event_source(file, max_events=None)
 
-    # try:
-    #	# read the simtel file
-    #	source = event_source(file, max_events=None)
-    # except FileNotFoundError:
-    #	print("File {} not found.".format(file))
-    #	sys.exit("exiting...")
-
-    event = next(iter(source))  # get one event to extract some informations
+    event = next(iter(source))  # get one event to extract some information
 
     if tels_to_use != "all":
         # read list of telescopes to use for analysis
@@ -179,16 +172,21 @@ if __name__ == '__main__':
 
     elif config["mode"] == "make_direction_LUT":
         # make direction LUT
-        offangle_bins = np.linspace(0, 10, 11)
-        #offangle_bins = np.array([0, 0.1, 0.2, 0.5, 1, 2, 4, 6, 10])
-        LUTgenerator = {}
-        for i, bin in enumerate(offangle_bins[:-1]):
-            LUTgenerator[i] = LookupGenerator()
+        if config["verbose"] in ["True", "true"]:
+            verbose = True
+            # one LUT per off angle bin
+            LUTgenerator = {}
+            offangle_bins = np.linspace(0, 10, 6)
+
+            for i, bin in enumerate(offangle_bins[:-1]):
+                LUTgenerator[i] = LookupGenerator()
+        else:
+            verbose = False
+            LUTgenerator = LookupGenerator()
 
     # start main loop
     #################
     for event in source:
-
         # raw image to direction reconstructed
         eventpreparer = PrepareList(event, telescope_list, camera_types,
                                     **config["Preparer"], LUT=LUTgenerator)
@@ -287,51 +285,76 @@ if __name__ == '__main__':
                     outfile.flush()
 
             except TypeError:
-                # happens if value of core reconstruction is without
-                # astropy unit. Is it a bug in HillasReconstructor ?
-                warnings.warn("Rconstruciton not succesfull for event {}"
+                # Images parametrized with a width of nan or 0 will break the
+                # default weighting of the HillasPlanes and result in a not
+                # successful reconstruction of the event.
+                warnings.warn("Reconstruction not succesfull for event {}"
                               .format(event.r0.event_id), ReconstructionWarning)
                 continue
 
         elif config["mode"] == "make_direction_LUT":
-            tel_id = next(iter(event.r0.tels_with_data))
 
-            off_angle = angular_separation(event.mc.az, event.mc.alt,
-                                           event.mc.tel[tel_id].azimuth_raw * u.rad,
-                                            event.mc.tel[tel_id].altitude_raw * u.rad)
+            if verbose:
+                tel_id = next(iter(event.r0.tels_with_data)) # one tel with data
+                off_angle = angular_separation(event.mc.az, event.mc.alt,
+                                               event.mc.tel[tel_id].azimuth_raw * u.rad,
+                                               event.mc.tel[tel_id].altitude_raw * u.rad)
 
-            if off_angle.to(u.deg).value > np.max(offangle_bins):
-                # off angle is to large irgnore
-                continue
+                if off_angle.to(u.deg).value > np.max(offangle_bins):
+                    # off angle is to large, irgnore this one
+                    continue
 
-            offbin = np.max(np.arange(len(offangle_bins))[offangle_bins < off_angle.to(u.deg).value])
-
-            # make a LUT for weights in direction reconstruction
-            LUTgenerator[offbin].collect_data(event, hillas_moments)
-
-    if config["mode"] == "make_direction_LUT":
-        for offbin in LUTgenerator:
-            LUTgenerator[offbin].make_lookup(config["make_direction_LUT"]["size_max"],
-                                              bins=config["make_direction_LUT"]["bins"])
-            LUTgenerator[offbin].save("{}_bin{}.json".format(outputfile, offbin))
-
-    elif config["mode"] in ["write_lists", "write_list_dca"]:
-        outfile.close()  # close remaining file
+                offbin = np.max(np.arange(len(offangle_bins))[
+                                    offangle_bins < off_angle.to(u.deg).value])
+                # make a LUT for weights in direction reconstruction
+                LUTgenerator[offbin].collect_data(event, hillas_moments)
+            else:
+                LUTgenerator.collect_data(event, hillas_moments)
 
     stop = datetime.now()
     duration = stop - start
     print("##################################")
-    print(" Succefully analyzed {} events ".format(event.count))
+    print(" Successfully analyzed {} events ".format(event.count))
     print(" Duration: {}".format(duration))
     print("##################################\n")
-    print("Output written to {} \n".format(outputfile))
-    print("Reading the output:\n \
-Feature tables:\n\
-for cam_id in {cams}:\n\
-    pandas.read_hdf('{file}', 'feature_events_{white}'.format(cam_id))\n\n\
-DCA feature table:\n\
-for cam_id in {cams}:\n\
-    pandas.read_hdf('{file}', 'dca_events_{white}'.format(cam_id))\n\n\
-Direction results:\n\
-pandas.read_hdf({file}, key='direction_reconstriction')\
-".format(cams=camera_types, file=outputfile, white="{}"))
+
+    if config["mode"] == "make_direction_LUT":
+        if verbose:
+            import pickle
+            LUTs = {"bins": offangle_bins}
+
+            for offbin in LUTgenerator:
+                LUTgenerator[offbin].make_lookup(config["make_direction_LUT"]["size_max"],
+                                            bins=config["make_direction_LUT"]["bins"])
+                # LUTgenerator[offbin].save("{}_bin{}.json".format(outputfile, offbin))
+                LUTs[offbin] = LUTgenerator[offbin].lookup
+
+            # use pickle to save all LUTs to the same file
+            with open("{}.pickle".format(outputfile), "wb") as file:
+                pickle.dump(LUTs, file)
+
+            print("Output written to {}.pickle \n".format(outputfile))
+            print("Read output using pickle.load({}.pickle)".format(outputfile))
+        else:
+            LUTgenerator.make_lookup(config["make_direction_LUT"]["size_max"],
+                                     bins=config["make_direction_LUT"]["bins"])
+            LUTgenerator.save("{}_bin{}.json".format(outputfile, offbin))
+
+            print("Output written to {}.json \n".format(outputfile))
+            print("Read output using konsta_cta.reco.direction_LUT"
+                  ".LookupGenerator.load({}.json)".format(outputfile))
+
+    elif config["mode"] in ["write_lists", "write_list_dca"]:
+        outfile.close()
+
+        print("Output written to {} \n".format(outputfile))
+        print("Reading the output:\n"
+              "Feature tables:\n"
+              "for cam_id in {cams}:\n""
+              "    pandas.read_hdf('{file}', 'feature_events_{white}'.format(cam_id))\n\n"
+              "DCA feature table:\n"
+              "for cam_id in {cams}:\n""
+              "    pandas.read_hdf('{file}', 'dca_events_{white}'.format(cam_id))\n\n""
+              "Direction results:\n"
+              "pandas.read_hdf({file}, key='direction_reconstriction')".format(
+              cams=camera_types, file=outputfile, white="{}"))
