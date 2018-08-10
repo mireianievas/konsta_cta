@@ -17,11 +17,18 @@ if __name__ == "__main__":
                         help="shuffle before selection")
     parser.add_argument("--outname", type=str, default=".",
                         help="path output directory")
+    parser.add_argument("--trainset", type=str, default="false")
     args = parser.parse_args()
 
     directory = args.directory
     extension = args.extension
     nfiles = args.nfiles
+
+    if args.trainset in ["True", "true"]:
+        trainset = True
+    else:
+        trainset = False
+
     if args.shuffle in ["True", "true"]:
         shuffle = True
     else:
@@ -55,12 +62,19 @@ if __name__ == "__main__":
     if shuffle:
         np.random.shuffle(files)
 
-    if nfiles > 0:
-        files = files[:nfiles]
+    if trainset:
+        files_train = files[:nfiles]
+        files_test = files[nfiles:]
+
+        np.savetxt("{}_train.list".format(outname), files_train, delimiter='\n', fmt='%s')
+        np.savetxt("{}_test.list".format(outname), files_test, delimiter='\n', fmt='%s')
     else:
-        print("Will write list with all files")
-        pass
+        if nfiles > 0:
+            files = files[:nfiles]
+        else:
+            print("Will write list with all files")
+            pass
 
-    np.savetxt(outname, files, delimiter='\n', fmt='%s')
+        np.savetxt(outname, files, delimiter='\n', fmt='%s')
 
-    print("{} files were written to {}".format(len(files), outname))
+        print("{} files were written to {}".format(len(files), outname))

@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import numpy as np
 import json
+import pandas as pd
 
 
 class LookupFailedError(Exception):
@@ -9,26 +10,26 @@ class LookupFailedError(Exception):
 
 
 class LookupBase:
-    '''
+    """
     Base class for handeling look up tables. The lookup tables
     are expected to be a tuple with arrays for statistics which
     contains the number of entries for each bin, one array for
-    each dimension containing the edges of the bins and one	
+    each dimension containing the edges of the bins and one
     array with the look up values.
-    '''
+    """
 
     def __init__(self):
         self.lookup = {}
 
     def save(self, path):
-        '''
+        """
         Save a lookuptable to a file using json
 
         Parameters
         ----------
         path : string
         	file to store the LUT self.lookup into
-        '''
+        """
         dict_to_save = {}
         for key in self.lookup.keys():
             dict_to_save[key] = [l.tolist() for l in self.lookup[key]]
@@ -39,20 +40,20 @@ class LookupBase:
 
     @classmethod
     def load(cls, path):
-        '''
+        """
         Read look up table and converte arrays to numpy.arrays
 
         Parameters
         ----------
         path : string
-        	path to the `json` file which stores the LUT
+            path to the `json` file which stores the LUT
 
         Returns
         -------
         self : LookupBase
-            in derived classes, it will return a instance of 
+            in derived classes, it will return a instance of
             that class for further usage
-        '''
+        """
         self = cls()
 
         with open(path) as f:
@@ -65,7 +66,7 @@ class LookupBase:
 
     @staticmethod
     def sum_nan_arrays(arr_a, arr_b):
-        '''
+        """
         Sum two numpy arrays and threat np.nans as zero
         if the the other array's entry is none nan at the
         same position. If both values are nans leave it as
@@ -79,7 +80,7 @@ class LookupBase:
         Returns
         -------
         summed_array : sum of the input arrays
-        '''
+        """
 
         mask_a = np.isnan(arr_a)
         mask_b = np.isnan(arr_b)
@@ -96,7 +97,7 @@ class LookupBase:
 
     @classmethod
     def combine_LUTs(cls, files):
-        '''
+        """
         Combine the resulting LUTs of multible files
         to one lookup table.
 
@@ -113,7 +114,7 @@ class LookupBase:
         lookup : Dictionary
             Dictionary with camera IDs as keys and numpy
             array of combined look up table.
-        '''
+        """
 
         statistic = {}
         sum_lookups = {}
@@ -130,7 +131,7 @@ class LookupBase:
                 try:
                     statistic[cam] += loaded.lookup[cam][0]
                     sum_lookups[cam] = self.sum_nan_arrays(sum_lookups[cam],
-                	 		  loaded.lookup[cam][0] * loaded.lookup[cam][-1])
+                                                           loaded.lookup[cam][0] * loaded.lookup[cam][-1])
 
                 except KeyError:
                     statistic[cam] = loaded.lookup[cam][0]
@@ -160,7 +161,7 @@ class LookupBase:
         return self
 
     def look_up_value(self, params, cam_id):
-        '''
+        """
         Get the value and number of entries to a given set of
         parameters. The number of parameters passed must be
         equal to the number of of dimensions the look up table
@@ -182,7 +183,7 @@ class LookupBase:
         ------
         LookupFailedError
             if the parameters are not in range of LUT
-        '''
+        """
 
         dims = np.shape(self.lookup[cam_id])[0] - 2
         if dims != len(params):
@@ -205,8 +206,8 @@ class LookupBase:
 
     def display_lookup(self, xlabel="attr_1", ylabel="attr_2",
                 figsize=None, xscale="log", yscale="linear",
-                cmap="inferno"):
-        '''
+                cmap="inferno", vmin=None, vmax=None):
+        """
         plot the look up tables stored in dict self.lookup. For each
         key a new line is printed with the histogram and the lookup
         values.
@@ -225,7 +226,7 @@ class LookupBase:
             scale to use for y-axis
         cmap : string
             python colormap
-        '''
+        """
         number_entries = len(self.lookup.keys())
         if figsize == None:
             figsize = [8, 3 * number_entries]
@@ -240,7 +241,8 @@ class LookupBase:
             stats = axarr[i, 0].pcolormesh(xbins, ybins, stat, alpha=1.,
                                            cmap=cmap, norm=LogNorm())
             dcavals = axarr[i, 1].pcolormesh(xbins, ybins, value, alpha=1.,
-                                             cmap=cmap, norm=LogNorm())
+                                             cmap=cmap, norm=LogNorm(),
+                                             vmin=vmin, vmax=vmax)
 
             for ax, im, label in zip([axarr[i, 0], axarr[i, 1]],
                                      [stats, dcavals],

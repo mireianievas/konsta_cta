@@ -60,7 +60,9 @@ class DCAFeatures(tb.IsDescription):
     skewness = tb.Float32Col(dflt=1, pos=4)
     kurtosis = tb.Float32Col(dflt=1, pos=5)
     r = tb.Float32Col(dflt=1, pos=6)
-    DCA = tb.Int16Col(dflt=1, pos=7)
+    offangle = tb.Float32Col(dflt=1, pos=7)
+    cam_id = tb.StringCol(dflt=1, pos=8, itemsize=16)
+    dca2 = tb.Float32Col(dflt=1, pos=9)
 
 
 class DirectionReconstruction(tb.IsDescription):
@@ -162,13 +164,17 @@ if __name__ == '__main__':
 
         outfile = tb.open_file("{}.h5".format(outputfile), mode="w")
 
-        dca_table = {}
-        dca_events = {}
-        for cam_id in camera_types:
-            # structure of the output file for dca feature list
-            dca_table[cam_id] = outfile.create_table(
-                '/', '_'.join(["dca_events", cam_id]), DCAFeatures)
-            dca_events[cam_id] = dca_table[cam_id].row
+        dca_table = outfile.create_table(
+            '/', "dca_list", DCAFeatures)
+        dca_events = dca_table.row
+
+        cam_id_list = {'LSTCam': 0,
+                       'FlashCam': 1,
+                       'NectarCam': 2,
+                       'CHEC': 3,
+                       'DigiCam': 4,
+                       'ASTRICam': 5}
+
 
     elif config["mode"] == "make_direction_LUT":
         # make direction LUT
@@ -257,11 +263,12 @@ if __name__ == '__main__':
                               .format(event.r0.event_id), ReconstructionWarning)
                 continue
 
-        if config["mode"] == "write_list_dca":
+        elif config["mode"] == "write_list_dca":
             # write parameters relevant for training energy regressors and
             # classifier of primary particles.
             try:
                 for tel_id in hillas_moments.keys():
+                    focal_length = event.inst.subarray.tel[tel_id].optics.equivalent_focal_length
                     cam_id = event.inst.subarray.tel[tel_id].camera.cam_id
 
                     # get dca value
@@ -272,15 +279,25 @@ if __name__ == '__main__':
                     dca = LUTgenerator.calculate_dca((cam_coord.x, cam_coord.y),
                                                      hillas_moments[tel_id])
 
+                    # convert dca to degrees
+                    conversion_factor = (180 / (np.pi * focal_length))
+                    dca = dca.value * conversion_factor * u.deg
+
+                    offangle = angular_separation(event.mc.az, event.mc.alt,
+                                                   event.mc.tel[tel_id].azimuth_raw * u.rad,
+                                                   event.mc.tel[tel_id].altitude_raw * u.rad)
+
                     # for training of dca RF 
-                    dca_events[cam_id]["intensity"] = hillas_moments[tel_id].intensity
-                    dca_events[cam_id]["width"] = hillas_moments[tel_id].width / u.m
-                    dca_events[cam_id]["length"] = hillas_moments[tel_id].length / u.m
-                    dca_events[cam_id]["skewness"] = hillas_moments[tel_id].skewness
-                    dca_events[cam_id]["kurtosis"] = hillas_moments[tel_id].kurtosis
-                    dca_events[cam_id]["r"] = hillas_moments[tel_id].r
-                    dca_events[cam_id]["DCA"] = dca
-                    dca_events[cam_id].append()
+                    dca_events["intensity"] = hillas_moments[tel_id].intensity
+                    dca_events["width"] = hillas_moments[tel_id].width.value
+                    dca_events["length"] = hillas_moments[tel_id].length.value
+                    dca_events["skewness"] = hillas_moments[tel_id].skewness
+                    dca_events["kurtosis"] = hillas_moments[tel_id].kurtosis
+                    dca_events["r"] = hillas_moments[tel_id].r.value
+                    dca_events["offangle"] = offangle.to(u.deg).value
+                    dca_events["cam_id"] = cam_id
+                    dca_events["dca2"] = dca.value**2
+                    dca_events.append()
 
                     outfile.flush()
 
@@ -338,7 +355,7 @@ if __name__ == '__main__':
         else:
             LUTgenerator.make_lookup(config["make_direction_LUT"]["size_max"],
                                      bins=config["make_direction_LUT"]["bins"])
-            LUTgenerator.save("{}_bin{}.json".format(outputfile, offbin))
+            LUTgenerator.save("{}.json".format(outputfile))
 
             print("Output written to {}.json \n".format(outputfile))
             print("Read output using konsta_cta.reco.direction_LUT"
@@ -350,11 +367,11 @@ if __name__ == '__main__':
         print("Output written to {} \n".format(outputfile))
         print("Reading the output:\n"
               "Feature tables:\n"
-              "for cam_id in {cams}:\n""
+              "for cam_id in {cams}:\n"
               "    pandas.read_hdf('{file}', 'feature_events_{white}'.format(cam_id))\n\n"
               "DCA feature table:\n"
-              "for cam_id in {cams}:\n""
-              "    pandas.read_hdf('{file}', 'dca_events_{white}'.format(cam_id))\n\n""
+              "for cam_id in {cams}:\n"
+              "    pandas.read_hdf('{file}', 'dca_events_{white}'.format(cam_id))\n\n"
               "Direction results:\n"
               "pandas.read_hdf({file}, key='direction_reconstriction')".format(
               cams=camera_types, file=outputfile, white="{}"))

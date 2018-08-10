@@ -5,6 +5,7 @@ LUT for direction reconstruction.
 
 from ctapipe.coordinates import CameraFrame, HorizonFrame
 from astropy.coordinates import SkyCoord
+from astropy.coordinates.angle_utilities import angular_separation
 
 from konsta_cta.reco.lookup_base import *
 from astropy import units as u
@@ -12,7 +13,7 @@ import numpy as np
 
 
 class LookupGenerator(LookupBase):
-    '''
+    """
     class to generate a look up tabel for the weights of
     the planes in the HillasReconstructor.
 
@@ -21,14 +22,14 @@ class LookupGenerator(LookupBase):
     being called in the event loop the required information
     is collected. Afterwards `make_lookup` can be used, to
     generate the set of the look up tables.
-    '''
+    """
 
     def __init__(self):
         self.data = {}
         super().__init__()
 
     def collect_data(self, event, hillas_dict):
-        '''
+        """
         Collect the data from event required for building
         the look up table.
 
@@ -38,14 +39,16 @@ class LookupGenerator(LookupBase):
         hillas_dict : Dictionary
                 Dict with telescope IDs as keys and`HillasParametersContainer`
                 as parameters.
+        dl2_list : bool
+                Write a more complete a more complete dl2 list
 
         Returns
         -------
         data : numpy.array
-        '''
+        """
 
         for tel_id in hillas_dict.keys():
-
+            focal_length = event.inst.subarray.tel[tel_id].optics.equivalent_focal_length
             cam_id = event.inst.subarray.tel[tel_id].camera.cam_id
             direction_az = event.mc.az.to(u.deg)
             direction_alt = event.mc.alt.to(u.deg)
@@ -56,18 +59,95 @@ class LookupGenerator(LookupBase):
             dca = self.calculate_dca((cam_coord.x, cam_coord.y),
                                      hillas_dict[tel_id])
 
+            # convert dca to degrees
+            conversion_factor = (180 / (np.pi * focal_length))
+            dca = dca.value * conversion_factor * u.deg
+
             ratio = hillas_dict[tel_id].width.value / \
                 hillas_dict[tel_id].length.value
-            entry = [dca.value**2,
-                     hillas_dict[tel_id].intensity, ratio]  # one row
+            entry = [dca.value ** 2, hillas_dict[tel_id].intensity, ratio]  # one row
 
             try:
                 self.data[cam_id] = np.append(self.data[cam_id], [entry], axis=0)
             except KeyError:
                 self.data[cam_id] = np.array([entry])
 
+    @classmethod
+    def load_data_from_files(cls, files, size_max, key="/dca_list", nbins=[10,10]):
+        """
+        Load data from HDF5 files and convert merge the files to self.data.
+        The data will be loaded from the key and has to include the columns
+        dca2, intensity, width, length and cam_id.
+        self.data in the end will be a dictionary with the unique cam_ids in
+        the files as keys and the data stored in numpy.arrays.
+
+        Paramters
+        ---------
+        files : list
+            list of HDF5 files with the data stored
+        key : string
+            key to the data in the HDF5 file
+        """
+
+        self = cls()
+
+        statistic = {}
+        sum_lookups = {}
+        bins = {}
+
+        for i, file in enumerate(files):
+            print(i)
+            dca_list = pd.read_hdf(file, key)
+            # get ratio between width and length
+            dca_list.loc[:, "ratio"] = dca_list.width / dca_list.length
+            dca_list = dca_list[np.isfinite(dca_list).all(axis=1)] # delete NaNs and infs
+
+            self.data = {}
+            # loop through all camera types
+            for cam_id in np.unique(dca_list.cam_id):
+                dca_camera = dca_list[dca_list.cam_id == cam_id]
+
+                entries = np.array(dca_camera.loc[:, ("dca2", "intensity", "ratio")])
+
+                try:
+                    self.data[cam_id] = np.append(self.data[cam_id], entries, axis=0)
+                except KeyError:
+                    self.data[cam_id] = entries
+
+            self.make_lookup(size_max, bins=nbins)
+
+            LUT = self.lookup
+
+            for cam in LUT.keys():
+                cam = str(cam)
+                dimensions = np.shape(LUT[cam])[0] - 2
+
+                # merge all LUTs
+                try:
+                    statistic[cam] += LUT[cam][0]
+                    sum_lookups[cam] = self.sum_nan_arrays(sum_lookups[cam],
+                                                           LUT[cam][0] * LUT[cam][-1])
+
+                except KeyError:
+                    statistic[cam] = LUT[cam][0]
+                    sum_lookups[cam] = LUT[cam][0] * LUT[cam][-1]
+
+                    bins[cam] = []
+                    for i in range(dimensions):
+                        bins[cam] += [LUT[cam][i + 1]]
+
+        self = cls()
+        for cam in statistic.keys():
+            sum_lookups[cam] = sum_lookups[cam] / statistic[cam]
+
+            self.lookup[cam] = np.array(
+                [statistic[cam]] + bins[cam] + [sum_lookups[cam]])
+
+        return self
+
+
     def get_position_in_cam(self, dir_alt, dir_az, event, tel_id):
-        '''
+        """
         transform position in HorizonFrame to CameraFrame
 
         Parameters
@@ -80,7 +160,7 @@ class LookupGenerator(LookupBase):
         Returns
         -------
         cam_coord : position in camera of telescope tel_id
-        '''
+        """
 
         # pointing direction of telescope
         pointing_az = event.mc.tel[tel_id].azimuth_raw * u.rad
@@ -106,7 +186,7 @@ class LookupGenerator(LookupBase):
         return cam_coord
 
     def calculate_dca(self, point, params):
-        '''
+        """
         calculate distance of closest approach between
         Hillas major semi-axis and a point in the camera.
 
@@ -115,7 +195,7 @@ class LookupGenerator(LookupBase):
         point : tuple or list
                 position x and y in camera
         params : `HillasParametersContainer`
-        '''
+        """
         A = np.tan(params.psi.to(u.deg))
         B = 1
         C = -(- A * params.x + params.y)
@@ -125,7 +205,7 @@ class LookupGenerator(LookupBase):
         return dca
 
     def make_lookup(self, size_max, bins=[10, 10]):
-        '''
+        """
         Create lookup tables for the weighting of the telescopes
 
         Parameters
@@ -141,7 +221,7 @@ class LookupGenerator(LookupBase):
         lookup: dictionary
                 For each camera ID one tuple containing a numpy
                 array with the histogram and the look up table.
-        '''
+        """
         lookup = {}
         for cam in self.data.keys():
             # make sure that entries are valid
@@ -154,26 +234,45 @@ class LookupGenerator(LookupBase):
             hist = np.histogram2d(self.data[cam][:, 1], self.data[
                                   cam][:, 2], [xbins, ybins])
 
-            dca2_means = []
-            for i in range(len(xbins) - 1):
-                for k in range(len(ybins) - 1):
-                    mask = ((self.data[cam][:, 1] >= hist[1][i]) &
-                            (self.data[cam][:, 1] <= hist[1][i + 1]) &
-                            (self.data[cam][:, 2] >= hist[2][k]) &
-                            (self.data[cam][:, 2] <= hist[2][k + 1]))
+            # code snippet from numpy.histogramdd to calculate the bin number
+            # each sample falls into. This is used in histogram2d above as well
+            # but as those required numbers are not written out it is
+            # reacalculated right here.
+            sample = np.array([self.data[cam][:, 1], self.data[cam][:, 2]]).T
+            D = sample.shape[1]
 
-                    subset = self.data[cam][mask, :]
+            edges = np.array([xbins, ybins])
+            dedges = D * [None]
 
-                    # mean squared dca values in bin
-                    dca2_means.append(np.mean(subset[:, 0]))
+            Ncount = {}
+            for i in np.arange(D):
+                Ncount[i] = np.digitize(sample[:, i], edges[i])
+
+            for i in np.arange(D):
+                dedges[i] = np.diff(edges[i])
+                # Rounding precision
+                mindiff = dedges[i].min()
+
+                if not np.isinf(mindiff):
+                    decimal = int(-np.log10(mindiff)) + 6
+                    # Find which points are on the rightmost edge.
+                    not_smaller_than_edge = (sample[:, i] >= edges[i][-1])
+                    on_edge = (np.around(sample[:, i], decimal) ==
+                               np.around(edges[i][-1], decimal))
+
+                    # Shift these points one bin to the left.
+                    Ncount[i][np.nonzero(on_edge & not_smaller_than_edge)[0]] -= 1
+
+            sum_dca2 = np.zeros([len(xbins), len(ybins)])
+            for i, dca2 in enumerate(self.data[cam][:, 0]):
+                sum_dca2[Ncount[0][i] - 1, Ncount[1][i] - 1] += dca2
+            dca2_means = sum_dca2[:-1,:-1] / hist[0]
 
             # add to the histogram
             self.lookup[cam] = np.array(hist + (np.reshape(dca2_means, bins),))
 
-        #return self.lookup
-
     def get_weight_from_LUT(self, params, cam_id, min_stat=5, ratio_cut=1.):
-        '''
+        """
         Get the weight from a LUT.
 
         Parameters
@@ -198,7 +297,7 @@ class LookupGenerator(LookupBase):
             if the statistic in the bin is below required value
             `min_stat` or if the ratio of width to length is above
             the cut
-        '''
+        """
         ratio = params.width / params.length
         if ratio > ratio_cut:
             # apply cut on the width to length ratio

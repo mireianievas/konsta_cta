@@ -40,9 +40,9 @@
 		    	"method": "per_type",
 				"cuts":{
 					"total": 4,
-					"FlashCam": 4,
-					"LSTCam": 4,
-					"NectarCam": 4,
+					"LSTCam": 2,
+					"FlashCam": 2,
+					"NectarCam": 2,
 					"SCTCam": 4,
 					"DigiCam": 4,
 					"CHEC": 4,
