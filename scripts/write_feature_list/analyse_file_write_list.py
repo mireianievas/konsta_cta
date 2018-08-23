@@ -2,7 +2,7 @@ from ctapipe.io import event_source  # file reader
 
 # perpare a event
 from prepare_featurelist import PrepareList, MultiplicityException
-from konsta_cta.reco.direction_LUT import *
+from konsta_cta.reco import *
 from ctapipe.reco.HillasReconstructor import TooFewTelescopesException
 
 # read configurations
@@ -149,8 +149,11 @@ if __name__ == '__main__':
         weight_methods = ["LUT", "default"]
         if config["Preparer"]["DirReco"]["weights"] == "LUT":
             LUTfile = "{}/{}".format(ctapipe_aux_dir, config["Preparer"]["DirReco"]["LUT"])
-
             LUTgenerator = LookupGenerator.load(LUTfile)
+
+        elif config["Preparer"]["DirReco"]["weights"] == "doublepass":
+            LUTfile = "{}/{}".format(ctapipe_aux_dir, config["Preparer"]["DirReco"]["LUT"])
+            LUTgenerator = DiffuseLUT.load_pickle(LUTfile)
 
         elif config["Preparer"]["DirReco"]["weights"] == "default":
             pass
@@ -178,17 +181,7 @@ if __name__ == '__main__':
 
     elif config["mode"] == "make_direction_LUT":
         # make direction LUT
-        if config["verbose"] in ["True", "true"]:
-            verbose = True
-            # one LUT per off angle bin
-            LUTgenerator = {}
-            offangle_bins = np.linspace(0, 10, 6)
-
-            for i, bin in enumerate(offangle_bins[:-1]):
-                LUTgenerator[i] = LookupGenerator()
-        else:
-            verbose = False
-            LUTgenerator = LookupGenerator()
+        LUTgenerator = LookupGenerator()
 
     # start main loop
     #################
@@ -310,23 +303,7 @@ if __name__ == '__main__':
                 continue
 
         elif config["mode"] == "make_direction_LUT":
-
-            if verbose:
-                tel_id = next(iter(event.r0.tels_with_data)) # one tel with data
-                off_angle = angular_separation(event.mc.az, event.mc.alt,
-                                               event.mc.tel[tel_id].azimuth_raw * u.rad,
-                                               event.mc.tel[tel_id].altitude_raw * u.rad)
-
-                if off_angle.to(u.deg).value > np.max(offangle_bins):
-                    # off angle is to large, irgnore this one
-                    continue
-
-                offbin = np.max(np.arange(len(offangle_bins))[
-                                    offangle_bins < off_angle.to(u.deg).value])
-                # make a LUT for weights in direction reconstruction
-                LUTgenerator[offbin].collect_data(event, hillas_moments)
-            else:
-                LUTgenerator.collect_data(event, hillas_moments)
+            LUTgenerator.collect_data(event, hillas_moments)
 
     stop = datetime.now()
     duration = stop - start
@@ -336,30 +313,13 @@ if __name__ == '__main__':
     print("##################################\n")
 
     if config["mode"] == "make_direction_LUT":
-        if verbose:
-            import pickle
-            LUTs = {"bins": offangle_bins}
+        LUTgenerator.make_lookup(config["make_direction_LUT"]["size_max"],
+                                 bins=config["make_direction_LUT"]["bins"])
+        LUTgenerator.save("{}.json".format(outputfile))
 
-            for offbin in LUTgenerator:
-                LUTgenerator[offbin].make_lookup(config["make_direction_LUT"]["size_max"],
-                                            bins=config["make_direction_LUT"]["bins"])
-                # LUTgenerator[offbin].save("{}_bin{}.json".format(outputfile, offbin))
-                LUTs[offbin] = LUTgenerator[offbin].lookup
-
-            # use pickle to save all LUTs to the same file
-            with open("{}.pickle".format(outputfile), "wb") as file:
-                pickle.dump(LUTs, file)
-
-            print("Output written to {}.pickle \n".format(outputfile))
-            print("Read output using pickle.load({}.pickle)".format(outputfile))
-        else:
-            LUTgenerator.make_lookup(config["make_direction_LUT"]["size_max"],
-                                     bins=config["make_direction_LUT"]["bins"])
-            LUTgenerator.save("{}.json".format(outputfile))
-
-            print("Output written to {}.json \n".format(outputfile))
-            print("Read output using konsta_cta.reco.direction_LUT"
-                  ".LookupGenerator.load({}.json)".format(outputfile))
+        print("Output written to {}.json \n".format(outputfile))
+        print("Read output using konsta_cta.reco.direction_LUT"
+              ".LookupGenerator.load({}.json)".format(outputfile))
 
     elif config["mode"] in ["write_lists", "write_list_dca"]:
         outfile.close()
