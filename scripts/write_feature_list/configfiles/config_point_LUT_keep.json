@@ -22,31 +22,35 @@
 			"WaveformCleanerProduct": "NullWaveformCleaner"
 		},
 		"DirReco":{
-			"weights": "default",
-			"LUT": "direction_weights_LUT.pickle",
+			"weights": "LUT",
+			"LUT": "direction_weights_LUT_point1.json",
 			"min_stat": 5,
 			"wl_ratio_cut":{
-				"ASTRICam": 0.6,
+				"ASTRICam": 0.7,
 				"FlashCam": 0.7,
 				"LSTCam": 0.7,
 				"NectarCam": 0.7,
 				"DigiCam": 0.7,
-				"CHEC": 0.6
+				"CHEC": 0.7
 			}
 		},
 		"quality_cuts": {
 		    "size": 50,
 		    "multiplicity":{
-				"ASTRICam": 3,
-				"FlashCam": 3,
-				"LSTCam": 3,
-				"NectarCam": 3,
-				"DigiCam": 3,
-				"CHEC": 3,
-				"SCTCam": 3
+		    	"method": "per_type",
+				"cuts":{
+					"total": 4,
+					"LSTCam": 2,
+					"FlashCam": 2,
+					"NectarCam": 2,
+					"SCTCam": 4,
+					"DigiCam": 4,
+					"CHEC": 4,
+					"ASTRICam": 4
+				}
 		    },
 			"leakage_cut":{
-				"method": "fraction",
+				"method": "radius",
 				"dist": "mean",
 				"radius": 0.8,
 				"rows": 2,
