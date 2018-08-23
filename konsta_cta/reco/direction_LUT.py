@@ -11,6 +11,8 @@ from konsta_cta.reco.lookup_base import *
 from astropy import units as u
 import numpy as np
 
+from tqdm import tqdm
+
 
 class LookupGenerator(LookupBase):
     """
@@ -95,12 +97,14 @@ class LookupGenerator(LookupBase):
         sum_lookups = {}
         bins = {}
 
-        for i, file in enumerate(files):
-            print(i)
+        for i, file in tqdm(enumerate(files), total=len(files), unit="files"):
+
             dca_list = pd.read_hdf(file, key)
             # get ratio between width and length
             dca_list.loc[:, "ratio"] = dca_list.width / dca_list.length
-            dca_list = dca_list[np.isfinite(dca_list).all(axis=1)] # delete NaNs and infs
+
+            dca_list = dca_list[np.isfinite(dca_list.loc[:,
+                                            dca_list.columns!="cam_id"]).all(axis=1)] # delete NaNs and infs
 
             self.data = {}
             # loop through all camera types
@@ -145,8 +149,8 @@ class LookupGenerator(LookupBase):
 
         return self
 
-
-    def get_position_in_cam(self, dir_alt, dir_az, event, tel_id):
+    @staticmethod
+    def get_position_in_cam(dir_alt, dir_az, event, tel_id):
         """
         transform position in HorizonFrame to CameraFrame
 
@@ -196,9 +200,11 @@ class LookupGenerator(LookupBase):
                 position x and y in camera
         params : `HillasParametersContainer`
         """
-        A = np.tan(params.psi.to(u.deg))
-        B = 1
-        C = -(- A * params.x + params.y)
+        m = np.tan(params.psi.to(u.deg)) # slope of line
+
+        B = 1 # might be fixed to arbitrary value
+        A = - m * B
+        C = (m * params.x - params.y) * B
 
         dca = np.abs(A * point[0] + B * point[1] + C) / np.sqrt(A**2 + B**2)
 
@@ -301,13 +307,13 @@ class LookupGenerator(LookupBase):
         ratio = params.width / params.length
         if ratio > ratio_cut:
             # apply cut on the width to length ratio
-            raise ValueError("Ratio width to length above allowed"
+            raise LookupFailedError("Ratio width to length above allowed"
                              " value of {}".format(ratio_cut))
 
         statistic, mean_dca2 = self.look_up_value([params.intensity, ratio],
                                                 cam_id)
         if statistic < min_stat:
-            raise ValueError("Not enough statistics in bin.")
+            raise LookupFailedError("Not enough statistics in bin.")
 
         weight = 1 / mean_dca2
 
