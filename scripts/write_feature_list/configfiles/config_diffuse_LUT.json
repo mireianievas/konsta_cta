@@ -1,4 +1,4 @@
-{	
+{
 	"mode": "write_lists",
 	"verbose": "False",
 	"ctapipe_aux_dir": "./ctapipe_aux_dir",
@@ -23,7 +23,7 @@
 		},
 		"DirReco":{
 			"weights": "LUT",
-			"LUT": "direction_weights_LUT_point.json",
+			"LUT": "direction_weights_LUT_diff_onebin.json",
 			"min_stat": 5,
 			"wl_ratio_cut":{
 				"ASTRICam": 0.7,

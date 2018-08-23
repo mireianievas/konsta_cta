@@ -23,7 +23,7 @@
 		},
 		"DirReco":{
 			"weights": "default",
-			"LUT": "direction_weights_LUT_diffuse.json",
+			"LUT": "direction_weights_LUT_diff_onebin.json",
 			"min_stat": 0,
 			"wl_ratio_cut":{
 				"ASTRICam": 1,
@@ -50,7 +50,7 @@
 				}
 			},
 			"leakage_cut":{
-				"method": "fraction",
+				"method": "radius",
 				"dist": "mean",
 				"radius": 1,
 				"rows": 2,
@@ -64,9 +64,9 @@
 		    "FlashCam": 3000000,
 		    "LSTCam": 3000000,
 		    "ASTRICam": 3000000,
-		    "DigiCam": 800000,
-		    "CHEC": 800000
+		    "DigiCam": 3000000,
+		    "CHEC": 3000000
 		},
-		"bins": [20, 20]
+		"bins": [30, 30]
 	}
 }

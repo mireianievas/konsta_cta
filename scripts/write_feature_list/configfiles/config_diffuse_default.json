@@ -1,4 +1,4 @@
-{	
+{
 	"mode": "write_lists",
 	"verbose": "False",
 	"ctapipe_aux_dir": "./ctapipe_aux_dir",
@@ -22,8 +22,8 @@
 			"WaveformCleanerProduct": "NullWaveformCleaner"
 		},
 		"DirReco":{
-			"weights": "LUT",
-			"LUT": "direction_weights_LUT_point.json",
+			"weights": "default",
+			"LUT": "direction_weights_LUT_diff.json",
 			"min_stat": 5,
 			"wl_ratio_cut":{
 				"ASTRICam": 0.7,
