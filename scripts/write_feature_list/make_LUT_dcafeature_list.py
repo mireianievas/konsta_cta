@@ -1,4 +1,18 @@
-from konsta_cta.reco import LookupGenerator
+"""
+Script to create LUT from dca feature list written out e.g. when executing
+the main script in method write_list_dca. Required parameters are datadir
+which is the path to the directory with the lists with names 'output*.h5'.
+The name of the output directory is given in the configuration file specified
+with --config. Additional parameters like the number of bins are also given
+in this file.
+For diffuse simulations, it might be necessary to produce the
+LUTs in different offangle bins. Using the option "diffuse" for --offangles
+allows to set bins in offangles. The on json based load method in defined in
+konsta_cta.reco.LookupGenerator currently is only able to load basic LUTs
+but not the "diffuse" LUTs with multiple off angle bins. Therefor
+"""
+
+from konsta_cta.reco import LookupGenerator, DiffuseLUT
 import glob
 import json
 import sys
@@ -12,6 +26,7 @@ if __name__ == '__main__':
                         help="directory with the feature list stored")
     parser.add_argument("--config", type=str, default="config.json",
                         help="configuration file")
+    parser.add_argument("--offangles", type=str, default="point")
     args = parser.parse_args()
 
     datadir = args.datadir
@@ -26,17 +41,8 @@ if __name__ == '__main__':
 
     files = glob.glob("{}/output*.h5".format(datadir))
 
-
-    # LUTGen.make_lookup(config["make_direction_LUT"]["size_max"], config["make_direction_LUT"]["bins"])
-    size_max = {2: 3000000,
-                1: 3000000,
-                0: 3000000,
-                5: 3000000,
-                4: 800000,
-                3: 800000}
-
-    LUTgenerator = LookupGenerator.load_data_from_files(files, size_max)
-    #LUTgenerator.make_lookup(size_max, config["make_direction_LUT"]["bins"])
+    size_max = config["make_direction_LUT"]["size_max"]
+    nbins = config["make_direction_LUT"]["bins"]
 
     ctapipe_aux_dir = os.path.abspath(config["ctapipe_aux_dir"])
     LUTfile = "{}/{}".format(ctapipe_aux_dir, config["Preparer"]["DirReco"]["LUT"])
@@ -53,10 +59,16 @@ if __name__ == '__main__':
             sys.exit("invalid option {}".format(merge))
 
     elif not os.path.isdir(ctapipe_aux_dir):
-        try:
-            os.makedirs(ctapipe_aux_dir)
-        except OSError as exc:  # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
+        os.makedirs(ctapipe_aux_dir)
 
-    LUTgenerator.save(LUTfile)
+    if args.offangles == "point":
+        LUTgenerator = LookupGenerator.load_data_from_files(files, size_max, nbins=nbins)
+        LUTgenerator.save(LUTfile)
+
+    elif args.offangles == "diffuse":
+        off_bins = [[0, 2],
+                    [2, 4],
+                    [4, 6],
+                    [6,10]]
+        DiffLUT = DiffuseLUT.look_up_offbins(files, size_max, nbins=nbins, off_bins=off_bins)
+        DiffLUT.save_pickle(LUTfile)
