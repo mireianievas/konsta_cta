@@ -30,6 +30,7 @@ class PrepareList(Cutter):
 
     def __init__(self, event, telescope_list, camera_types, ChargeExtration,
                  pe_thresh, tail_thresholds, DirReco, quality_cuts, LUT=None):
+        super().__init__()
         '''
         Parmeters
         ---------
@@ -50,9 +51,14 @@ class PrepareList(Cutter):
         self.camera_types = camera_types
         self.dirreco = DirReco
         self.LUTgenerator = LUT
-        self.weights = None
+
+        if (self.dirreco["weights"] == "LUT") | (self.dirreco["weights"] == "doublepass"):
+            self.weights = {}
+        else:
+            self.weights = None
 
         self.hillas_dict = {}
+        self.camera_dict = {}
         self.edge_pixels = {}
 
         # configurations for calibrator
@@ -101,24 +107,71 @@ class PrepareList(Cutter):
 
         return impact
 
-    # ################################################################################################
-    # def get_angle_offset(self):  ##################### Currently not used 	########################
-    #     '''
-    #     Get angular offset between reconstructed shower direction
-    #     MC shower direction. This might be used to calculate th2 plots
-    #     or the angular resolution.
-    #
-    #     Returns
-    #     -------
-    #     list of difference beween reconstructed and true direction
-    #     '''
-    #
-    #     off_angle = angular_separation(self.event.mc.az, self.event.mc.alt,
-    #                                    self.reco_result.az,
-    #                                    self.reco_result.alt)
-    #     off_angle.append(off_angle.to(u.deg).value)
-    #
-    #     return off_angles
+    def get_offangle(self, tel_id):
+        '''
+        Get the angular offset between the reconstructed direction and the
+        pointing direction of the telescope.
+
+        Returns
+        -------
+        off_angles : dictionary
+            dictionary with tel_ids as keys and the offangle as entries.
+        '''
+        off_angle = angular_separation(self.event.mc.tel[tel_id].azimuth_raw * u.rad,
+                                       self.event.mc.tel[tel_id].altitude_raw * u.rad,
+                                       self.reco_result.az,
+                                       self.reco_result.alt)
+
+        return off_angle
+
+    def get_weight(self, method, camera, tel_id, hillas_par, offangle=None):
+        """
+        Get the weighting for HillasReconustructor. Possible methods are
+        'default', which will fall back to the standard weighting applied
+        in capipe, 'LUT' which will take the weights from a LUT and
+        'doublepass' which might be used for diffuse simulations. In this
+        case it returns the weights for the first pass.
+
+        method : sting
+            method to get the weighting.
+        camera: CameraDescription
+        tel_id: integer
+        hillas_par: HillasParameterContainer
+        """
+        if method == "default":
+            pass
+
+        elif method == "LUT":
+            if np.isnan(hillas_par.width) & (not np.isnan(hillas_par.length)):
+                hillas_par.width = 0 * u.m
+
+            self.weights[tel_id] = self.LUTgenerator.get_weight_from_LUT(hillas_par,
+                                                                         camera.cam_id,
+                                                                         min_stat=self.dirreco["min_stat"],
+                                                                         ratio_cut=self.dirreco["wl_ratio_cut"][
+                                                                             camera.cam_id]
+                                                                         )
+
+        elif method == "doublepass":
+            # first pass with default weighting
+            if np.isnan(hillas_par.width) & (not np.isnan(hillas_par.length)):
+                hillas_par.width = 0 * u.m
+            self.weights[tel_id] = hillas_par.intensity * (1 * u.m + hillas_par.length) / (
+                    1 * u.m + hillas_par.width)
+
+        elif method == "second_pass":
+            # weights for second pass
+            self.weights[tel_id] = self.LUTgenerator.get_weight_from_diffuse_LUT(self.hillas_dict[tel_id],
+                                                                                 offangle, camera.cam_id,
+                                                                                 min_stat=self.dirreco[
+                                                                                     "min_stat"],
+                                                                                 ratio_cut=
+                                                                                 self.dirreco["wl_ratio_cut"][
+                                                                                     camera.cam_id]
+                                                                                 )
+
+        else:
+            raise KeyError("Weighting method {} not known.".format(method))
 
     def prepare(self):
         '''
@@ -128,13 +181,16 @@ class PrepareList(Cutter):
         '''
 
         tels_per_type = {}
+        no_weight = []
 
         # calibrate event
         self.calibrator.calibrate(self.event)
 
         # loop over all telescopeswith data in it
         for tel_id in self.event.r0.tels_with_data:
+
             # check if telescope is selected for analysis
+            # This also could be done already in event_source when reading th data
             if (tel_id in self.telescope_list) | (self.telescope_list == "all"):
                 pass
             else:
@@ -142,7 +198,8 @@ class PrepareList(Cutter):
 
             # get camera information
             camera = self.event.inst.subarray.tel[tel_id].camera
-            # get the images in photoelectrons
+            self.camera_dict[tel_id] = camera
+
             image = self.event.dl1.tel[tel_id].image
 
             if camera.cam_id in self.pe_thresh.keys():
@@ -168,51 +225,29 @@ class PrepareList(Cutter):
             hillas_par = hillas_parameters(camera, cleaned_image)
 
             # quality cuts
-            if self.quality_cuts["leakage_cut"]["method"] == "None":
-                leakage = True
-            elif self.quality_cuts["leakage_cut"]["method"] == "radius":
-                leakage = self.leakage_radius(camera, hillas_par,
-                                              self.quality_cuts["leakage_cut"]["radius"],
-                                              method=self.quality_cuts["leakage_cut"]["dist"])
-            elif self.quality_cuts["leakage_cut"]["method"] == "fraction":
-                leakage = self.leakage_fraction(camera, cleaned_image,
-                                                rows=self.quality_cuts["leakage_cut"]["rows"],
-                                                fraction=self.quality_cuts["leakage_cut"]["frac"])
-            else:
-                raise KeyError("leakage cut method {} not known.".format(
-                    self.quality_cuts["leakage_cut"]["method"]))
+            leakage = leakage = self.leakage_cut(camera=camera, hillas_parameters=hillas_par,
+                                                 radius=self.quality_cuts["leakage_cut"]["radius"],
+                                                 max_dist=self.quality_cuts["leakage_cut"]["dist"],
+                                                 image=cleaned_image,
+                                                 rows=self.quality_cuts["leakage_cut"]["rows"],
+                                                 fraction=self.quality_cuts["leakage_cut"]["frac"],
+                                                 method=self.quality_cuts["leakage_cut"]["method"],
+                                                 )
 
             size = self.size_cut(hillas_par, self.quality_cuts["size"])
-
             if not (leakage & size):
                 # size or leakage cuts not passed
                 continue
 
-            # collect parameters for doing analysis and write to file
+            # get the weighting for HillasReconstructor
+            try:
+               self.get_weight(self.dirreco["weights"], camera, tel_id, hillas_par)
+            except LookupFailedError:
+                # this telescope will be ignored, should only happen for method LUT here
+                no_weight.append(tel_id)
+                continue
 
-            if self.dirreco["weights"] == "LUT":
-                # get the weight for this telescope
-                try:
-                    self.weights[tel_id] = self.LUTgenerator.get_weight_from_LUT(hillas_par,
-                                                                                 camera.cam_id,
-                                                                                 min_stat=self.dirreco["min_stat"],
-                                                                                 ratio_cut=self.dirreco["wl_ratio_cut"][
-                                                                                     camera.cam_id]
-                                                                                 )
-                except TypeError:
-                    self.weights = {tel_id: self.LUTgenerator.get_weight_from_LUT(hillas_par,
-                                                                                  camera.cam_id,
-                                                                                  min_stat=self.dirreco["min_stat"],
-                                                                                  ratio_cut=
-                                                                                  self.dirreco["wl_ratio_cut"][
-                                                                                      camera.cam_id])
-                                    }
-                except ValueError:
-                    continue
-                except LookupFailedError:
-                    continue
-
-            self.hillas_dict[tel_id] = hillas_par  # hillas
+            self.hillas_dict[tel_id] = hillas_par
             self.max_signal[tel_id] = np.max(cleaned_image)  # brightest pix
 
             try:
@@ -227,31 +262,69 @@ class PrepareList(Cutter):
                                             "or size cuts.")
 
         # wil raise exception if cut was not passed
-        rejected_types = self.multiplicity_cut(self.quality_cuts["multiplicity"]["cuts"],
-                                               tels_per_type, method=self.quality_cuts["multiplicity"]["method"])
+        self.multiplicity_cut(self.quality_cuts["multiplicity"]["cuts"],
+                              tels_per_type, method=self.quality_cuts["multiplicity"]["method"])
 
-        # remove telescope types for Hillas reconstruction
-        for tel_type in rejected_types:
-            for tel_id in tels_per_type[tel_type]:
-                del self.hillas_dict[tel_id]
-                del self.max_signal[tel_id]
-                if self.dirreco["weights"] == "LUT":
-                    del self.weights[tel_id]
-
+        # collect some additional information
         for tel_id in self.hillas_dict:
             self.tot_signal += self.hillas_dict[tel_id].intensity  # total size
 
             self.true_az[tel_id] = self.event.mc.tel[tel_id].azimuth_raw * u.rad
             self.true_alt[tel_id] = self.event.mc.tel[tel_id].altitude_raw * u.rad
 
+        # Number of telescopes triggered per type
         self.n_tels_per_type = {tel: len(tels_per_type[tel])
-                                for tel in tels_per_type
-                                }
+                                for tel in tels_per_type}
+
+        if self.dirreco["weights"] == "LUT":
+            # remove telescopes withough weights
+            print("Removed {} of {} telescopes due LUT problems".format(
+                        len(no_weight), len(self.hillas_dict) + len(no_weight)))
 
         # do Hillas reconstruction
         self.reco_result = self.reconstructor.predict(self.hillas_dict,
                                                       self.event.inst, self.true_alt, self.true_az,
                                                       ext_weight=self.weights)
+
+        if self.dirreco["weights"] == "doublepass":
+            # take the reconstructed direction to get an estimate of the offangle and
+            # get weights from the second pass from the diffuse LUT.
+            self.weights = {} # reset the weights from earlier
+            no_weight = []
+            for tel_id in self.hillas_dict:
+                offangle = self.get_offangle(tel_id)
+                offangle = offangle.to(u.deg).value
+
+                camera = self.camera_dict[tel_id] # reload camera_information
+
+                # get the weighting for HillasReconstructor
+                try:
+                    self.get_weight("second_pass", camera, tel_id,
+                                    self.hillas_dict[tel_id], offangle)
+                except LookupFailedError:
+                    no_weight.append(tel_id)
+
+            print("Removed {} of {} telescopes due LUT problems".format(
+                                    len(no_weight), len(self.hillas_dict)))
+
+            # remove those types from tels_per_type
+            for tel_id in no_weight:
+                del self.hillas_dict[tel_id]
+                for cam_id in tels_per_type:
+                    if tel_id in tels_per_type[cam_id]:
+                        index = np.where(np.array(tels_per_type[cam_id]) == tel_id)
+                        tels_per_type[cam_id].pop(int(index[0]))  # remove from list
+
+            # redo the multiplicity cut to check if it still fulfilled
+            self.multiplicity_cut(self.quality_cuts["multiplicity"]["cuts"], tels_per_type,
+                                  method=self.quality_cuts["multiplicity"]["method"])
+
+            # do the second pass with new weights
+            self.reco_result = self.reconstructor.predict(self.hillas_dict,
+                                                          self.event.inst,
+                                                          self.true_alt,
+                                                          self.true_az,
+                                                          ext_weight=self.weights)
 
         self.impact = self.get_impact(self.hillas_dict)  # impact parameter
 
