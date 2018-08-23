@@ -12,6 +12,7 @@ import glob
 import json
 import sys
 import errno
+from tqdm import tqdm
 
 import datetime
 
@@ -21,17 +22,23 @@ today = f"{datetime.datetime.now():%Y-%m-%d}"
 class FileSubmitter():
     '''
     Class to submit ctapip jobs using qsub.
+
+    Parameters
+    ----------
+    file: str
+        file to analyse
+    dtypes: str
+        datatype
+    odir: str
+        output directory
+    tels_to_use: str
+        file with list of telescopes
+    config: str
+        json configuration file
     '''
 
     def __init__(self, file, dtype, odir, tels_to_use,
                  ctapipe_aux_dir, config):
-        '''
-        file 		- file to analyse (str)
-        dtypes 		- datatype (str)
-        odir		- output directory (str)
-        tels_to_use - file with list of telescopes (str)
-        config 		- json configuratino file
-        '''
 
         self.file = file
         self.dtype = dtype
@@ -69,7 +76,7 @@ class FileSubmitter():
         # directiory for log files
         log_dir = "{}/LOGS/{}/{}/".format(odir, today, dtype)
         os.system("mkdir -p {}".format(log_dir))
-        print("Writing logs to {}".format(log_dir))
+        # print("Writing logs to {}".format(log_dir))
 
         # name of logfile
         self.log_name = "{}{}_{}_{}_run{}".format(log_dir, dtype,
@@ -89,7 +96,7 @@ class FileSubmitter():
             self.log_name, self.log_name, self.file,
             self.outputfile, self.tels_to_use,
             self.directory, self.ctapipe_aux_dir, self.config)
-        print(submit)
+        #print(submit)
 
         subprocess.call(submit, shell=True)  # submit the job
 
@@ -124,6 +131,13 @@ if __name__ == '__main__':
     else:
         raise NotImplementedError("{} is not implemented. Possible"
                                   "modes are {}".format(config["mode"], available_modes))
+
+    if config["mode"] == "make_direction_LUT":
+        print("For more flexibility later, you could write out a feature"
+              "list for the DCA look up tables using this script in mode"
+              "write_list_dca. From those feature lists lists the LUT can"
+              "be created using the script make_LUT_dcafeature_list.py.")
+
 
     ctapipe_aux_dir = os.path.abspath(config["ctapipe_aux_dir"])
 
@@ -180,9 +194,9 @@ if __name__ == '__main__':
                 len(files), runlist))
 
             # loop over all files and submit each file to one job
-            for file in files:
-                print("-------------- staring with next file --------------")
-                print("File to analyse: {}".format(file))
+            for file in tqdm(files, total=len(files)):
+                #print("-------------- staring with next file --------------")
+                #print("File to analyse: {}".format(file))
 
                 Submitter = FileSubmitter(file, dtype, odir,
                                           tels_to_use, ctapipe_aux_dir, config_file)
