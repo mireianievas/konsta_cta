@@ -24,4 +24,4 @@
 
 source $HOME/.zshrc
 
-python ./angular_resolution.py --directories $1 $2 $3 --names $4 $5 $6 --odir $7 --offsets 0.0 2.0 6.0 10.0 --maxfiles $8
+python $9/angular_resolution.py --directories $1 $2 $3 --names $4 $5 $6 --odir $9/$7 --offsets 0.0 2.0 6.0 10.0 --maxfiles $8

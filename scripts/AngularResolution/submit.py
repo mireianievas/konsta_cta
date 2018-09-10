@@ -15,7 +15,7 @@ if __name__=='__main__':
     parser.add_argument('--odir', default="./AngularResolutionPlots")
     parser.add_argument('--outname', default="None")
     parser.add_argument('--offsets', nargs="*", default=[-1, 100], type=float)
-    parser.add_argument('--maxfiles', type=int, default=None)
+    parser.add_argument('--maxfiles', type=int, default=-1)
     args = parser.parse_args()
 
 
@@ -39,14 +39,14 @@ if __name__=='__main__':
 
     if len(args.names) == 2:
         if args.offsets == [-1, 100]:
-            submit = "qsub -o {log}_output.txt -e {log}_errors.txt ./qsub2_point.sh".format(log=log_dir)
+            submit = "qsub -V -o {log}LOG.txt -e {log}_errors.txt ./qsub2_point.sh".format(log=log_dir)
         else:
-            submit = "qsub -o {log}_output.txt -e {log}_errors.txt ./qsub2.sh".format(log=log_dir)
+            submit = "qsub -V -o {log}LOG.txt -e {log}_errors.txt ./qsub2.sh".format(log=log_dir)
     elif len(args.names) == 3:
         if args.offsets == [-1, 100]:
-            submit = "qsub -o {log}_output.txt -e {log}_errors.txt ./qsub3_point.sh".format(log=log_dir)
+            submit = "qsub -V -o {log}LOG.txt -e {log}_errors.txt ./qsub3_point.sh".format(log=log_dir)
         else:
-            submit = "qsub -o {log}_output.txt -e {log}_errors.txt ./qsub3.sh".format(log=log_dir)
+            submit = "qsub -V -o {log}LOG.txt -e {log}_errors.txt ./qsub3.sh".format(log=log_dir)
 
     for dir in args.directories:
         submit += " {}".format(dir)
@@ -56,10 +56,12 @@ if __name__=='__main__':
 
     submit += " {}".format(args.odir)
 
-    for offset in args.offsets:
-        submit += " {}".format(offset)
+    #for offset in args.offsets:
+    #    submit += " {}".format(offset)
 
     submit += " {}".format(args.maxfiles)
+
+    submit += " {}".format(directory)
     print("")
     print(submit)
 
