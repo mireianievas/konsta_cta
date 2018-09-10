@@ -66,14 +66,13 @@ class DCAFeatures(tb.IsDescription):
 
 
 class DirectionReconstruction(tb.IsDescription):
-    Primary_ID = tb.Int16Col(dflt=1, pos=1)
-    MC_Energy = tb.FloatCol(dflt=1, pos=2)
-    MC_az = tb.FloatCol(dflt=1, pos=3)
-    MC_alt = tb.FloatCol(dflt=1, pos=4)
-    REC_az = tb.FloatCol(dflt=1, pos=5)
-    REC_alt = tb.FloatCol(dflt=1, pos=6)
-    off_angle = tb.FloatCol(dflt=1, pos=7)
-
+    MC_Energy = tb.FloatCol(dflt=1, pos=1)
+    N_LST = tb.Int16Col(dflt=1, pos=2)
+    N_MST = tb.Int16Col(dflt=1, pos=3)
+    N_SST = tb.Int16Col(dflt=1, pos=4)
+    multiplicity = tb.Int64Col(dflt=1, pos=5)
+    off_angle = tb.FloatCol(dflt=1, pos=6)
+    offset = tb.FloatCol(dflt=1, pos=7)
 
 if __name__ == '__main__':
     start = datetime.now()
@@ -193,7 +192,7 @@ if __name__ == '__main__':
         # get the parameters of the parametrization and reconstruction
         try:
             impact, max_signal, tot_signal, n_tels_types, hillas_moments, \
-            reconstructed = eventpreparer.get_reconstructed_parameters()
+            mc_offset, reconstructed = eventpreparer.get_reconstructed_parameters()
         except (TooFewTelescopesException, MultiplicityException):
             continue
 
@@ -237,14 +236,16 @@ if __name__ == '__main__':
                     feature_events[cam_id]["Primary_ID"] = event.mc.shower_primary_id
                     feature_events[cam_id].append()
 
+                multiplicity = n_tels["LST"] + n_tels["MST"] + n_tels["SST"]
+
                 # direction reconstruction results
-                direction_events["Primary_ID"] = event.mc.shower_primary_id
                 direction_events["MC_Energy"] = event.mc.energy / u.TeV
-                direction_events["MC_az"] = event.mc.az / u.deg
-                direction_events["MC_alt"] = event.mc.alt / u.deg
-                direction_events["REC_az"] = reconstructed.az / u.deg
-                direction_events["REC_alt"] = reconstructed.alt / u.deg
+                direction_events["N_LST"] = n_tels["LST"]
+                direction_events["N_MST"] = n_tels["MST"]
+                direction_events["N_SST"] = n_tels["SST"]
+                direction_events["multiplicity"] = multiplicity
                 direction_events["off_angle"] = off_angle
+                direction_events["offset"] = mc_offset.to(u.deg).value
                 direction_events.append()
 
                 outfile.flush()
