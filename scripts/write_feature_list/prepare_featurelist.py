@@ -29,7 +29,7 @@ class PrepareList(Cutter):
     impact = {}
 
     def __init__(self, event, telescope_list, camera_types, ChargeExtration,
-                 pe_thresh, tail_thresholds, DirReco, quality_cuts, LUT=None):
+                 pe_thresh, min_neighbors, tail_thresholds, DirReco, quality_cuts, LUT=None):
         super().__init__()
         '''
         Parmeters
@@ -46,6 +46,7 @@ class PrepareList(Cutter):
         self.event = event
         self.telescope_list = telescope_list
         self.pe_thresh = pe_thresh
+        self.min_neighbors = min_neighbors
         self.tail_thresholds = tail_thresholds
         self.quality_cuts = quality_cuts
         self.camera_types = camera_types
@@ -107,20 +108,34 @@ class PrepareList(Cutter):
 
         return impact
 
-    def get_offangle(self, tel_id):
+    def get_offangle(self, tel_id, direction="reco"):
         '''
         Get the angular offset between the reconstructed direction and the
         pointing direction of the telescope.
+
+        Parameters
+        ----------
+        tel_id : integer
+            Telecope ID
+        true_off : string
+            if "mc", the true MC direction is taken for calculation. Otherwise,
+            if "reco" the reconstructed value will be taken
 
         Returns
         -------
         off_angles : dictionary
             dictionary with tel_ids as keys and the offangle as entries.
         '''
-        off_angle = angular_separation(self.event.mc.tel[tel_id].azimuth_raw * u.rad,
-                                       self.event.mc.tel[tel_id].altitude_raw * u.rad,
-                                       self.reco_result.az,
-                                       self.reco_result.alt)
+        if direction == "reco":
+            off_angle = angular_separation(self.event.mc.tel[tel_id].azimuth_raw * u.rad,
+                                           self.event.mc.tel[tel_id].altitude_raw * u.rad,
+                                           self.reco_result.az,
+                                           self.reco_result.alt)
+        elif direction == "mc":
+            off_angle = angular_separation(self.event.mc.tel[tel_id].azimuth_raw * u.rad,
+                                           self.event.mc.tel[tel_id].altitude_raw * u.rad,
+                                           self.event.mc.az,
+                                           self.event.mc.alt)
 
         return off_angle
 
@@ -212,7 +227,8 @@ class PrepareList(Cutter):
             mask = tailcuts_clean(
                 camera, image,
                 picture_thresh=self.tail_thresholds[camera.cam_id][1],
-                boundary_thresh=self.tail_thresholds[camera.cam_id][0])
+                boundary_thresh=self.tail_thresholds[camera.cam_id][0],
+                min_number_picture_neighbors=self.min_neighbors)
 
             # go to next telescope if no pixels survived cleaning
             if not any(mask):
@@ -261,10 +277,6 @@ class PrepareList(Cutter):
             raise TooFewTelescopesException("No image survived the leakage "
                                             "or size cuts.")
 
-        # wil raise exception if cut was not passed
-        self.multiplicity_cut(self.quality_cuts["multiplicity"]["cuts"],
-                              tels_per_type, method=self.quality_cuts["multiplicity"]["method"])
-
         # collect some additional information
         for tel_id in self.hillas_dict:
             self.tot_signal += self.hillas_dict[tel_id].intensity  # total size
@@ -272,9 +284,9 @@ class PrepareList(Cutter):
             self.true_az[tel_id] = self.event.mc.tel[tel_id].azimuth_raw * u.rad
             self.true_alt[tel_id] = self.event.mc.tel[tel_id].altitude_raw * u.rad
 
-        # Number of telescopes triggered per type
-        self.n_tels_per_type = {tel: len(tels_per_type[tel])
-                                for tel in tels_per_type}
+        # wil raise exception if cut was not passed
+        # self.multiplicity_cut(self.quality_cuts["multiplicity"]["cuts"],
+        #                      tels_per_type, method=self.quality_cuts["multiplicity"]["method"])
 
         if self.dirreco["weights"] == "LUT":
             # remove telescopes withough weights
@@ -292,15 +304,15 @@ class PrepareList(Cutter):
             self.weights = {} # reset the weights from earlier
             no_weight = []
             for tel_id in self.hillas_dict:
-                offangle = self.get_offangle(tel_id)
-                offangle = offangle.to(u.deg).value
+                predicted_offangle = self.get_offangle(tel_id, direction="reco")
+                predicted_offangle = predicted_offangle.to(u.deg).value
 
                 camera = self.camera_dict[tel_id] # reload camera_information
 
                 # get the weighting for HillasReconstructor
                 try:
                     self.get_weight("second_pass", camera, tel_id,
-                                    self.hillas_dict[tel_id], offangle)
+                                    self.hillas_dict[tel_id], predicted_offangle)
                 except LookupFailedError:
                     no_weight.append(tel_id)
 
@@ -316,8 +328,8 @@ class PrepareList(Cutter):
                         tels_per_type[cam_id].pop(int(index[0]))  # remove from list
 
             # redo the multiplicity cut to check if it still fulfilled
-            self.multiplicity_cut(self.quality_cuts["multiplicity"]["cuts"], tels_per_type,
-                                  method=self.quality_cuts["multiplicity"]["method"])
+            # self.multiplicity_cut(self.quality_cuts["multiplicity"]["cuts"], tels_per_type,
+            #                       method=self.quality_cuts["multiplicity"]["method"])
 
             # do the second pass with new weights
             self.reco_result = self.reconstructor.predict(self.hillas_dict,
@@ -325,6 +337,19 @@ class PrepareList(Cutter):
                                                           self.true_alt,
                                                           self.true_az,
                                                           ext_weight=self.weights)
+
+        # Number of telescopes triggered per type
+        self.n_tels_per_type = {tel: len(tels_per_type[tel])
+                                for tel in tels_per_type}
+
+        for tel_id in self.hillas_dict:
+            try:
+                agree = self.mc_offset == self.get_offangle(tel_id, direction="mc")
+            except AttributeError:
+                self.mc_offset = self.get_offangle(tel_id, direction="mc")
+                continue
+            if not agree:
+                raise ValueError("The pointing of the telescopes seems to be different.")
 
         self.impact = self.get_impact(self.hillas_dict)  # impact parameter
 
@@ -340,6 +365,7 @@ class PrepareList(Cutter):
             tot_signal
             n_tels_per_type
             hillas_dict
+            mc_offangle
             reco_result
         '''
 
@@ -350,4 +376,4 @@ class PrepareList(Cutter):
             self.prepare()
 
         return (self.impact, self.max_signal, self.tot_signal, self.n_tels_per_type,
-                self.hillas_dict, self.reco_result)
+                self.hillas_dict, self.mc_offset, self.reco_result)
