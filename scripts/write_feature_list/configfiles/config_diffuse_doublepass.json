@@ -3,12 +3,13 @@
 	"verbose": "False",
 	"ctapipe_aux_dir": "./ctapipe_aux_dir",
 	"Preparer":{
+		"min_neighbors": 2,
 		"tail_thresholds":{
 			"ASTRICam": [5, 7],
 			"FlashCam": [12, 15],
-			"LSTCam": [5, 10],
-			"NectarCam": [4, 8],
-			"DigiCam": [3, 6],
+			"LSTCam": [3.5, 7.5],
+			"NectarCam": [3, 5.5],
+			"DigiCam": [2, 4.5],
 			"CHEC": [2, 4],
 			"SCTCam": [1.5, 3]
 	   },
@@ -23,7 +24,7 @@
 		},
 		"DirReco":{
 			"weights": "doublepass",
-			"LUT": "direction_weights_LUT_diff.json",
+			"LUT": "direction_weights_LUT_diff_clean.json",
 			"min_stat": 5,
 			"wl_ratio_cut":{
 				"ASTRICam": 0.7,
@@ -37,7 +38,7 @@
 		"quality_cuts": {
 		    "size": 50,
 		    "multiplicity":{
-		    	"method": "per_type",
+		    	"method": "None",
 				"cuts":{
 					"total": 4,
 					"LSTCam": 2,

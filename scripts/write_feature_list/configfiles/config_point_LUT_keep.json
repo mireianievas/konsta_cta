@@ -23,7 +23,7 @@
 		},
 		"DirReco":{
 			"weights": "LUT",
-			"LUT": "direction_weights_LUT_point1.json",
+			"LUT": "direction_weights_LUT_point.json",
 			"min_stat": 5,
 			"wl_ratio_cut":{
 				"ASTRICam": 0.7,
@@ -37,7 +37,7 @@
 		"quality_cuts": {
 		    "size": 50,
 		    "multiplicity":{
-		    	"method": "per_type",
+		    	"method": "None",
 				"cuts":{
 					"total": 4,
 					"LSTCam": 2,

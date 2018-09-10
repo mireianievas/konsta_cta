@@ -50,7 +50,7 @@
 				}
 			},
 			"leakage_cut":{
-				"method": "fraction",
+				"method": "radius",
 				"dist": "mean",
 				"radius": 1,
 				"rows": 2,
