@@ -5,6 +5,7 @@
 
 import warnings
 import os
+import glob
 from os.path import expandvars
 
 from ctapipe.io import event_source
@@ -25,7 +26,7 @@ class FileReader():
         self.datatype = datatype
 
         if not self.datatype:
-            warnings.warn("No name for datatype passed.")
+            warnings.warning("No name for datatype passed.")
 
         if not self.file_list:
             raise ValueError("No list given.")
@@ -40,10 +41,17 @@ class FileReader():
     # generate a list of input files from the files in directory
     @classmethod
     def get_file_list(cls, directory=None, datatype=None, max_events=None):
-        if not directory:
+        if directory is None:
             raise IOError("No directory given")
-        file_list = os.popen('find ' + str(directory) +
-            ' -name "*run*simtel*"').read().split('\n')[:-1]
+        if os.path.isdir(directory):
+            # we are passing a directory, get the list of simtel files
+            file_list = glob.glob("%s/*run*simtel*.{simtel,gz}" % directory)
+        else if len(glob.glob(directory))>0:
+            # assume we are passing a file list with wildcards
+            file_list = glob.glob(directory)
+        else:
+            warnings.warning("No simtel files found within the given wildcards/directory")
+
         return cls(file_list, datatype, max_events)
 
     # read the sources from the file in list
