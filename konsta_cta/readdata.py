@@ -50,7 +50,7 @@ class FileReader():
             # assume we are passing a file list with wildcards
             file_list = glob.glob(directory)
         else:
-            warnings.warning("No simtel files found within the given wildcards/directory")
+            warnings.warn("No simtel files found within the given wildcards/directory")
 
         return cls(file_list, datatype, max_events)
 
