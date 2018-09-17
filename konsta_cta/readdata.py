@@ -43,10 +43,10 @@ class FileReader():
     def get_file_list(cls, directory=None, datatype=None, max_events=None):
         if directory is None:
             raise IOError("No directory given")
-        if os.path.isdir(directory):
+        elif os.path.isdir(directory):
             # we are passing a directory, get the list of simtel files
             file_list = glob.glob("%s/*run*simtel*.{simtel,gz}" % directory)
-        else if len(glob.glob(directory))>0:
+        elif len(glob.glob(directory))>0:
             # assume we are passing a file list with wildcards
             file_list = glob.glob(directory)
         else:
